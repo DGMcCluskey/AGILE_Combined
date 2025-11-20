@@ -72,12 +72,36 @@ import gc
 gc.collect()
 ```
 
+## rename markers 
 ```{python}
-parts = pd.Series(adata.var_names).str.split(":", expand=True)
+var_series = pd.Series(adata.var_names)
+clean_names = var_series.str.split(":", expand=True)[0].str.strip()
+adata.var_names = clean_names.values
+```
+
+## rename tissue groupings, as they are currently slightly different
+```{python}
+adata.obs["tissue"] = adata.obs["tissue"].map(
+    {
+        "blood":"blood",
+        "blister":"blister",
+        "Blister":"blister",
+        "Blister1":"blister",
+        "Blister2":"blister"
+    }
+)
 ```
 
 ## plot marker expression for inspection
 ```{python}
 cytovi.plot_histogram(adata, marker="all", groupby="tissue", layer_key="scaled")
 cytovi.plot_biaxial(adata, marker_x="CD3", marker_y="CD8", color="tissue", layer_key="scaled")
+```
+
+## run clustering and umap without batch correction
+```{python}
+adata.X = adata.layers["scaled"]
+sc.pp.neighbors(adata, use_rep="X", transformer="pynndescent")
+sc.tl.umap(adata)
+sc.pl.umap(adata, color="donor")
 ```
