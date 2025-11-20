@@ -47,4 +47,9 @@ adata.obs["treatment"] = parts[0]
 adata.obs["donor"]     = parts[1]
 adata.obs["tissue"]    = parts[2]
 adata.obs["time"]      = parts[3]
+adata.obs
+```
+
+```{python}
+cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
 ```
