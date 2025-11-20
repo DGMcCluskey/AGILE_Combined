@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
 import requests
 import scanpy as sc  # type: ignore
+import pandas as pd
 import scvi
 import torch  # type: ignore
 from rich import print  # type: ignore
@@ -53,6 +54,7 @@ adata.obs
 ## perform arcsinh transformation with a cofactor of 2000 (recommended in multiple tutorials)
 ```{python}
 cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
+cytovi.scale(adata)
 ```
 
 ## downsample to 20,000 cells per sample 
@@ -62,4 +64,20 @@ adata_ds = cytovi.subsample(adata, groupby="sample_full", n_obs_group=20000)
 numbers = adata_ds.obs.groupby("sample_full").size()
 adata = adata_ds.copy()
 del adata_ds
+```
+
+## free up memory after deleting big object
+```{python}
+import gc
+gc.collect()
+```
+
+```{python}
+parts = pd.Series(adata.var_names).str.split(":", expand=True)
+```
+
+## plot marker expression for inspection
+```{python}
+cytovi.plot_histogram(adata, marker="all", groupby="tissue", layer_key="scaled")
+cytovi.plot_biaxial(adata, marker_x="CD3", marker_y="CD8", color="tissue", layer_key="scaled")
 ```
