@@ -39,10 +39,8 @@ print("Last run with scvi-tools version:", scvi.__version__)
 
 ## tell scvi to use gpu where relevant (apparently this should spped up the heavy steps 10-50x!)
 ```{python}
-# Tell scvi-tools to use GPU
-scvi.settings.device = "cuda"  # or "cuda:0" if you have multiple GPUs
-scvi.settings.seed = 0         # for reproducibility
-
+scvi.settings.device = "cuda"
+scvi.settings.seed = 0
 ```
 
 ## load in all fcs files from current working directory, excluding certain channels and not creating a sample column yet (whole file name will still be stored at this point)
