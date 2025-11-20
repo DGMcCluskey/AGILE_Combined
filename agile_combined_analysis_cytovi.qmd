@@ -98,6 +98,14 @@ cytovi.plot_histogram(adata, marker="all", groupby="tissue", layer_key="scaled")
 cytovi.plot_biaxial(adata, marker_x="CD3", marker_y="CD8", color="tissue", layer_key="scaled")
 ```
 
+## at this point i need to figure out how to use my gpu to speed up the next steps. clustering take a while, but the model training will take days without it 
+
+```{python}
+print(torch.cuda.is_available())  # True if any GPU is available
+print(torch.cuda.device_count())  # Number of GPUs detected
+print(torch.cuda.get_device_name(0))  # Name of GPU 0
+```
+
 ## run clustering and umap without batch correction
 ```{python}
 adata.X = adata.layers["scaled"]
