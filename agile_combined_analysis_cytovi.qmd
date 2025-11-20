@@ -105,3 +105,10 @@ sc.pp.neighbors(adata, use_rep="X", transformer="pynndescent")
 sc.tl.umap(adata)
 sc.pl.umap(adata, color="donor")
 ```
+
+## set up and train the cytovi model
+```{python}
+cytovi.CYTOVI.setup_anndata(adata, layer="scaled", batch_key="donor")
+model = cytovi.CYTOVI(adata)
+model.train(n_epochs_kl_warmup=50)
+```
