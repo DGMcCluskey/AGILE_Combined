@@ -1,13 +1,11 @@
----
-title: "Untitled"
-format: html
----
-
+## script combining the analysis of the blood and blister data from the agile trial
+## using cytovi (as opposed to catalyst in R)
 
 ```{python}
 import os
 import random
 import tempfile
+import glob
 
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
@@ -17,4 +15,36 @@ import scvi
 import torch  # type: ignore
 from rich import print  # type: ignore
 from scvi.external import cytovi  # type: ignore
+
+os.environ["SCIPY_ARRAY_API"] = "1"
+
+sc.set_figure_params(figsize=(4, 4))
+
+scvi.settings.seed = 0
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+print("Last run with scvi-tools version:", scvi.__version__)
+```
+
+## load in all fcs files from current working directory, excluding certain channels and not creating a sample column yet (whole file name will still be stored at this point)
+```{python}
+adata = cytovi.read_fcs(".", remove_markers=["FSC - Area", "SSC - Area", "Time Stamp", "Live-dead : Zombie-NIR - Area"], sample_name_extractor=None)
+```
+
+## make a new sample_full column that is the file name minus the redundant suffix
+## also change the phrasing the blood data from "stained_blood" to just "blood"
+```{python}
+adata.obs["sample_full"] = adata.obs["filename"].str.replace(" WLSM_CD45 Pos.fcs", "", regex=False)
+adata.obs["sample_full"] = adata.obs["sample_full"].str.replace("stained_blood", "blood", regex=False)
+adata.obs
+```
+
+## now split the sample name by underscores (this contains donor, treatment, time etc) and then make these new columns
+```{python}
+parts = adata.obs["sample_full"].str.split("_", expand=True)
+adata.obs["treatment"] = parts[0]
+adata.obs["donor"]     = parts[1]
+adata.obs["tissue"]    = parts[2]
+adata.obs["time"]      = parts[3]
 ```
