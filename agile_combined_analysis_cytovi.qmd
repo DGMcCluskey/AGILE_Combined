@@ -50,6 +50,16 @@ adata.obs["time"]      = parts[3]
 adata.obs
 ```
 
+## perform arcsinh transformation with a cofactor of 2000 (recommended in multiple tutorials)
 ```{python}
 cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
+```
+
+## downsample to 20,000 cells per sample 
+## this mainly impacts the blood samples, as blisters dont reach this number
+```{python}
+adata_ds = cytovi.subsample(adata, groupby="sample_full", n_obs_group=20000)
+numbers = adata_ds.obs.groupby("sample_full").size()
+adata = adata_ds.copy()
+del adata_ds
 ```
