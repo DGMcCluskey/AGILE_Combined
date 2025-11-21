@@ -68,64 +68,6 @@ adata.obs["time"]      = parts[3]
 adata.obs
 ```
 
-```{python}
-# -----------------------------
-# 2️⃣ Subsample blood cells proportionally
-# -----------------------------
-# Separate tissues
-blister_cells = adata[adata.obs['tissue'] == "blister"].copy()
-blood_cells = adata[adata.obs['tissue'] == "blood"].copy()
-
-# Total number of blood cells to keep for plotting
-target_blood_n = 100_000
-
-# Compute proportions per donor
-donor_counts = blood_cells.obs['donor'].value_counts()
-donor_props = donor_counts / donor_counts.sum()
-
-blood_subsample = []
-
-for donor, prop in donor_props.items():
-    donor_idx = blood_cells.obs[blood_cells.obs['donor'] == donor].index
-    n_keep = int(np.round(prop * target_blood_n))
-    if len(donor_idx) > n_keep:
-        chosen = np.random.choice(donor_idx, size=n_keep, replace=False)
-    else:
-        chosen = donor_idx
-    blood_subsample.extend(chosen)
-
-# Combine with all blister cells
-subset_idx = np.concatenate([blister_cells.obs.index, blood_subsample])
-adata_sub = adata[subset_idx].copy()
-```
-## perform arcsinh transformation with a cofactor of 2000 (recommended in multiple tutorials)
-```{python}
-cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
-cytovi.scale(adata)
-```
-
-## downsample to 10,000 cells per sample 
-## this mainly impacts the blood samples, as blisters dont reach this number
-```{python}
-adata_ds = cytovi.subsample(adata, groupby="sample_full", n_obs_group=10000)
-numbers = adata_ds.obs.groupby("sample_full").size()
-adata = adata_ds.copy()
-del adata_ds
-```
-
-## free up memory after deleting big object
-```{python}
-import gc
-gc.collect()
-```
-
-## rename markers 
-```{python}
-var_series = pd.Series(adata.var_names)
-clean_names = var_series.str.split(":", expand=True)[0].str.strip()
-adata.var_names = clean_names.values
-```
-
 ## rename tissue groupings, as they are currently slightly different
 ```{python}
 adata.obs["tissue"] = adata.obs["tissue"].map(
@@ -137,6 +79,57 @@ adata.obs["tissue"] = adata.obs["tissue"].map(
         "Blister2":"blister"
     }
 )
+```
+
+```{python}
+# -----------------------------
+# 2Subsample blood cells proportionally
+# -----------------------------
+# Separate tissues
+blister_cells = adata[adata.obs['tissue'] == "blister"].copy()
+blood_cells = adata[adata.obs['tissue'] == "blood"].copy()
+
+# Total number of blood cells to keep for plotting
+target_blood_n = 100_000
+
+# Compute proportions per donor
+sample_counts = blood_cells.obs['sample_full'].value_counts()
+sample_props = sample_counts / sample_counts.sum()
+
+blood_subsample = []
+
+for sample, prop in sample_props.items():
+    sample_idx = blood_cells.obs[blood_cells.obs['sample_full'] == sample].index
+    n_keep = int(np.round(prop * target_blood_n))
+    if len(sample_idx) > n_keep:
+        chosen = np.random.choice(sample_idx, size=n_keep, replace=False)
+    else:
+        chosen = sample_idx
+    blood_subsample.extend(chosen)
+
+# Combine with all blister cells
+subset_idx = np.concatenate([blister_cells.obs.index, blood_subsample])
+adata = adata[subset_idx].copy()
+adata.obs.groupby(["tissue", "time"]).size()
+```
+
+## perform arcsinh transformation with a cofactor of 2000 (recommended in multiple tutorials)
+```{python}
+cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
+cytovi.scale(adata)
+```
+
+## free up memory
+```{python}
+import gc
+gc.collect()
+```
+
+## rename markers 
+```{python}
+var_series = pd.Series(adata.var_names)
+clean_names = var_series.str.split(":", expand=True)[0].str.strip()
+adata.var_names = clean_names.values
 ```
 
 ## plot marker expression for inspection
@@ -170,16 +163,17 @@ plt.title("Training vs Validation ELBO")
 plt.show()
 ```
 
-## add the new cytoviembedding
-## compute neighbours and run leiden clustering on the full dataset
+## add the new cytovi embedding
+## compute neighbours
 ## 
 ```{python}
-# -----------------------------
-# 1️⃣ Compute neighbors and Leiden on full data
-# -----------------------------
 adata.obsm["X_CytoVI"] = model.get_latent_representation()
 sc.pp.neighbors(adata, use_rep="X_CytoVI", n_neighbors=30)
+```
 
+```{python}
+sc.tl.umap(adata)
+sc.pl.umap(adata, color="tissue")
 ```
 
 ```{python}
@@ -187,13 +181,14 @@ adata.layers["imputed"] = model.get_normalized_expression()
 ```
 
 ```{python}
-#adata.write("agile_combined_modelled.h5ad")
+adata.write("agile_combined_modelled.h5ad")
 adata = sc.read_h5ad("agile_combined_modelled.h5ad")
 ```
 
 ```{python}
 sc.pl.umap(adata, color=["tissue", "time"])
 ```
+
 ```{python}
 g = cytovi.plot_histogram(
     adata, marker=["CD62L", "CD16", "CD69"], layer_key="scaled", groupby="tissue", return_plot=True
@@ -208,6 +203,23 @@ h.fig.suptitle("Corrected expression", fontsize=16)
 
 ```{python}
 plt.figure()
-marker_umaps = sc.pl.umap(adata, color=adata.var_names, layer="imputed", ncols=5, cmap="rocket", show=False, vmax="p99")
+marker_umaps = sc.pl.umap(adata, color=adata.var_names, layer="imputed", ncols=5, cmap="mako", show=False, vmax="p99")
 plt.savefig("marker_umaps.png", dpi=300)
+```
+
+```{python}
+sc.tl.leiden(adata, resolution=0.4, key_added="leiden_CytoVI", flavor="igraph")
+sc.pl.umap(adata, color="leiden_CytoVI")
+```
+
+```{python}
+sc.pl.matrixplot(
+    adata,
+    var_names=adata.var_names,
+    groupby="leiden_CytoVI",
+    layer="imputed",
+    dendrogram=True,
+    standard_scale="var",
+    cmap="mako",
+)
 ```
