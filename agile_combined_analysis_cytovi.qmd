@@ -230,9 +230,9 @@ sc.pl.stacked_violin(adata, var_names=adata.var_names, groupby="leiden_CytoVI", 
 ```
 
 ```{python}
-potential_neuts= adata[adata.obs["lediden_CytoVI"].isin(["13","18","16","17","8","12"])].copy()
+potential_neuts= adata[adata.obs["leiden_CytoVI"].isin(["13","18","16","17","8"])].copy()
 cytovi.plot_histogram(
-    potential_neuts, marker=["CD62L", "CD16"], layer_key="inputed", groupby="leiden_CytoVI", return_plot=True
+    potential_neuts, marker=["CD62L", "CD16", "CD184", "CD15", "CD182"], layer_key="imputed", groupby="leiden_CytoVI", return_plot=True
 )
 ```
 ```{python}
@@ -243,18 +243,21 @@ cell_annotation_dict = {
     "3": "Classical_monocyte_blister",
     "4": "CD8+T_blister",
     "5": "DC_mixed",
-    "6": "",
+    "6": "DC_blister",
     "7": "CD8+T_blister",
-    "8": "",
+    "8": "Neutrophil_old_blister",
     "9": "CD8+T_blood",
     "10": "Treg_blister",
     "11": "NK_blood",
     "12": "CD4+T_blood",
-    "13": "",
+    "13": "Neutrophil_aged_blood",
     "14": "Classical_monocyte_blood",
     "15": "NKT_blister",
-    "16": "",
-    "17": "",
-    "18": ""
+    "16": "Neutrophil_young_blood",
+    "17": "Neutrophil_young_blister",
+    "18": "Neutrophil_mature_blood"
 }
+
+adata.obs["label"] = adata.obs["leiden_CytoVI"].map(cell_annotation_dict)
+sc.pl.umap(adata, color="label")
 ```
