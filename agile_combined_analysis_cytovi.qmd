@@ -125,5 +125,51 @@ adata = sc.read_h5ad("agile_combined_pre_model.h5ad")
 ```{python}
 cytovi.CYTOVI.setup_anndata(adata, layer="scaled", batch_key="donor")
 model = cytovi.CYTOVI(adata)
-model.train(n_epochs_kl_warmup=50, max_epochs=100, batch_size=2048)
+model.train(n_epochs_kl_warmup=20, max_epochs=100, batch_size=1024)
+```
+
+```{python}
+plt.figure()
+plt.plot(model.history["elbo_train"], label="Train")
+plt.figure()
+plt.plot(model.history["elbo_validation"], label="Validation")
+plt.xlabel("Epochs")
+plt.ylabel("ELBO")
+plt.legend()
+plt.title("Training vs Validation ELBO")
+plt.show()
+```
+
+```{python}
+adata.obsm["X_CytoVI"] = model.get_latent_representation()
+sc.pp.neighbors(adata, use_rep="X_CytoVI", transformer="pynndescent")
+sc.tl.umap(adata)
+sc.pl.umap(adata, color="donor")
+```
+
+```{python}
+adata.layers["imputed"] = model.get_normalized_expression()
+```
+
+```{python}
+#adata.write("agile_combined_modelled.h5ad")
+adata = sc.read_h5ad("agile_combined_modelled.h5ad")
+```
+
+```{python}
+g = cytovi.plot_histogram(
+    adata, marker=["CD62L", "CD16", "CD69"], layer_key="scaled", groupby="tissue", return_plot=True
+)
+g.fig.suptitle("Uncorrected expression", fontsize=16)
+
+h = cytovi.plot_histogram(
+    adata, marker=["CD62L", "CD16", "CD69"], layer_key="imputed", groupby="tissue", return_plot=True
+)
+h.fig.suptitle("Corrected expression", fontsize=16)
+```
+
+```{python}
+plt.figure()
+marker_umaps = sc.pl.umap(adata, color=adata.var_names, layer="imputed", ncols=5, cmap="rocket", show=False, vmax="p99")
+plt.savefig("marker_umaps.png", dpi=300)
 ```
