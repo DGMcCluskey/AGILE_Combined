@@ -68,6 +68,36 @@ adata.obs["time"]      = parts[3]
 adata.obs
 ```
 
+```{python}
+# -----------------------------
+# 2️⃣ Subsample blood cells proportionally
+# -----------------------------
+# Separate tissues
+blister_cells = adata[adata.obs['tissue'] == "blister"].copy()
+blood_cells = adata[adata.obs['tissue'] == "blood"].copy()
+
+# Total number of blood cells to keep for plotting
+target_blood_n = 100_000
+
+# Compute proportions per donor
+donor_counts = blood_cells.obs['donor'].value_counts()
+donor_props = donor_counts / donor_counts.sum()
+
+blood_subsample = []
+
+for donor, prop in donor_props.items():
+    donor_idx = blood_cells.obs[blood_cells.obs['donor'] == donor].index
+    n_keep = int(np.round(prop * target_blood_n))
+    if len(donor_idx) > n_keep:
+        chosen = np.random.choice(donor_idx, size=n_keep, replace=False)
+    else:
+        chosen = donor_idx
+    blood_subsample.extend(chosen)
+
+# Combine with all blister cells
+subset_idx = np.concatenate([blister_cells.obs.index, blood_subsample])
+adata_sub = adata[subset_idx].copy()
+```
 ## perform arcsinh transformation with a cofactor of 2000 (recommended in multiple tutorials)
 ```{python}
 cytovi.transform_arcsinh(adata, global_scaling_factor=2000)
@@ -140,11 +170,16 @@ plt.title("Training vs Validation ELBO")
 plt.show()
 ```
 
+## add the new cytoviembedding
+## compute neighbours and run leiden clustering on the full dataset
+## 
 ```{python}
+# -----------------------------
+# 1️⃣ Compute neighbors and Leiden on full data
+# -----------------------------
 adata.obsm["X_CytoVI"] = model.get_latent_representation()
-sc.pp.neighbors(adata, use_rep="X_CytoVI", transformer="pynndescent")
-sc.tl.umap(adata)
-sc.pl.umap(adata, color="donor")
+sc.pp.neighbors(adata, use_rep="X_CytoVI", n_neighbors=30)
+
 ```
 
 ```{python}
@@ -156,6 +191,9 @@ adata.layers["imputed"] = model.get_normalized_expression()
 adata = sc.read_h5ad("agile_combined_modelled.h5ad")
 ```
 
+```{python}
+sc.pl.umap(adata, color=["tissue", "time"])
+```
 ```{python}
 g = cytovi.plot_histogram(
     adata, marker=["CD62L", "CD16", "CD69"], layer_key="scaled", groupby="tissue", return_plot=True
