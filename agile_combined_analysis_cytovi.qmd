@@ -209,7 +209,8 @@ plt.savefig("marker_umaps.png", dpi=300)
 
 ```{python}
 sc.tl.leiden(adata, resolution=0.4, key_added="leiden_CytoVI", flavor="igraph")
-sc.pl.umap(adata, color="leiden_CytoVI")
+sc.pl.umap(adata, color="leiden_CytoVI", legend_loc="on data")
+sc.pl.umap(adata, color="time")
 ```
 
 ```{python}
@@ -222,4 +223,38 @@ sc.pl.matrixplot(
     standard_scale="var",
     cmap="mako",
 )
+```
+
+```{python}
+sc.pl.stacked_violin(adata, var_names=adata.var_names, groupby="leiden_CytoVI", layer="imputed", stripplot=False, use_raw=False)
+```
+
+```{python}
+potential_neuts= adata[adata.obs["lediden_CytoVI"].isin(["13","18","16","17","8","12"])].copy()
+cytovi.plot_histogram(
+    potential_neuts, marker=["CD62L", "CD16"], layer_key="inputed", groupby="leiden_CytoVI", return_plot=True
+)
+```
+```{python}
+cell_annotation_dict = {
+    "0": "CD8+T_blister",
+    "1": "NK_blister",
+    "2": "CD4+T_blister",
+    "3": "Classical_monocyte_blister",
+    "4": "CD8+T_blister",
+    "5": "DC_mixed",
+    "6": "",
+    "7": "CD8+T_blister",
+    "8": "",
+    "9": "CD8+T_blood",
+    "10": "Treg_blister",
+    "11": "NK_blood",
+    "12": "CD4+T_blood",
+    "13": "",
+    "14": "Classical_monocyte_blood",
+    "15": "NKT_blister",
+    "16": "",
+    "17": "",
+    "18": ""
+}
 ```
