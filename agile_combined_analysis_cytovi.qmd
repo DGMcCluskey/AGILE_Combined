@@ -19,6 +19,7 @@ import tempfile
 import glob
 
 import matplotlib.pyplot as plt  # type: ignore
+from matplotlib import rcParams
 import numpy as np  # type: ignore
 import requests
 import scanpy as sc  # type: ignore
@@ -27,6 +28,7 @@ import scvi
 import torch  # type: ignore
 from rich import print  # type: ignore
 from scvi.external import cytovi  # type: ignore
+import seaborn.objects as so
 
 os.environ["SCIPY_ARRAY_API"] = "1"
 
@@ -254,10 +256,61 @@ cell_annotation_dict = {
     "14": "Classical_monocyte_blood",
     "15": "NKT_blister",
     "16": "Neutrophil_young_blood",
-    "17": "Neutrophil_young_blister",
+    "17": "Neutrophil_mature_blood",
     "18": "Neutrophil_mature_blood"
 }
 
 adata.obs["label"] = adata.obs["leiden_CytoVI"].map(cell_annotation_dict)
-sc.pl.umap(adata, color="label")
+cluster_palette= ["green", "limegreen", "red", "darkred", "hotpink", "mediumvioletred", "darkorchid", "mediumpurple", "grey", "goldenrod", "orange", "navy", "blue", "deepskyblue", "cyan", "royalblue", "lightcoral"]
+```
+
+```{python}
+rcParams["figure.figsize"] = (10, 10)
+plt.figure()
+sc.pl.umap(adata, color="label", legend_loc="on data", legend_fontoutline=2, frameon = False, size =5, palette=cluster_palette, legend_fontsize="small", title="annotated UMAP")
+plt.savefig("UMAP_annotated.png", dpi=300)
+```
+
+```{python}
+plt.figure()
+sc.pl.matrixplot(
+    adata,
+    var_names=["CD3", "CD4", "CD8", "FOXP3", "CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L"],
+    groupby="label",
+    layer="imputed",
+    dendrogram=True,
+    standard_scale="var",
+    cmap="mako_r",
+    figsize=(12,7)
+)
+plt.savefig("annotated_heatmap.png", dpi=300)
+```
+
+
+```{python}
+df = adata.obs
+
+counts = df.groupby(["label", "tissue"]).size().unstack(fill_value=0)
+props  = counts.div(counts.sum(axis=1), axis=0).reset_index().melt(
+    id_vars="label",
+    var_name="tissue",
+    value_name="prop"
+)
+p = so.Plot(props, y="label", x = "prop", color="tissue").add(so.Bar(), so.Stack())
+fig=p.plot()._figure
+fig.savefig("tissue_cluster_proportions.png", dpi=300, bbox_inches="tight")
+```
+```{python}
+df = adata.obs
+
+counts = df.groupby(["label", "time", "treatment"]).size().unstack(fill_value=0)
+props  = counts.div(counts.sum(axis=1), axis=0).reset_index().melt(
+    id_vars="label",
+    var_name="tissue",
+    value_name="prop"
+)
+p = so.Plot(props, y="label", x = "prop", color="tissue").add(so.Bar(), so.Stack())
+fig=p.plot()._figure
+fig.savefig("tissue_cluster_proportions.png", dpi=300, bbox_inches="tight")
+
 ```
