@@ -275,6 +275,7 @@ plt.savefig("UMAP_annotated.png", dpi=300)
 ```
 
 ```{python}
+sc.tl.dendrogram(adata, groupby="label")
 plt.figure()
 sc.pl.matrixplot(
     adata,
