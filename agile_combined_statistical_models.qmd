@@ -1,0 +1,129 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{r}
+library(lme4)
+library(lmerTest)   # adds p-values to lmer
+library(emmeans)    # estimated marginal means
+library(dplyr)
+library(purrr)
+library(readr)
+library(viridis)
+library(readxl)
+```
+
+```{r}
+blood_df <- read.csv("agile_blood_proportions_df.csv")
+donor_info <- read_xlsx("Participant_info.xlsx")
+donor_info$donor <- donor_info$`Participant ID`
+blood_df <- blood_df %>%
+  left_join(donor_info %>% select(donor, Age,), by = "donor")
+```
+
+```{r}
+## Factors
+blood_df$time_clean <- factor(blood_df$time_clean, levels = c("-72h","0h","6h","24h","48h","72h"))
+blood_df$treatment_clean <- factor(blood_df$treatment_clean)
+
+## Unique clusters
+clusters <- unique(blood_df$label)
+
+## Storage
+interaction_list <- list()
+
+for (cl in clusters) {
+  
+  message("Running model for cluster: ", cl)
+  
+  d <- blood_df %>% filter(label == cl)
+  
+  # Fit mixed model
+  m <- lmer(prop ~ treatment_clean * time_clean + Age + (1 | donor), data = d)
+  
+  # EMMs
+  emm <- emmeans(m, ~ treatment_clean * time_clean)
+  
+  # Treatment contrasts within each timepoint
+  inter <- contrast(emm, method = "pairwise", by = "time_clean")
+  inter_df <- as.data.frame(inter)
+  inter_df$label <- cl
+  
+  # FDR correction within **each cluster × time**
+  inter_df <- inter_df %>%
+    group_by(time_clean) %>%
+    mutate(p_adj_fdr = p.adjust(p.value, method = "fdr")) %>%
+    ungroup()
+  
+  # Keep only the treatment comparison of interest (e.g., "drug - control")
+  inter_df <- inter_df %>% filter(grepl("-", contrast))
+  
+  interaction_list[[cl]] <- inter_df
+}
+
+## Combine all clusters
+interaction_results <- bind_rows(interaction_list)
+
+## Save results
+write_csv(interaction_results, "interaction_results_FDR_cluster_time.csv")
+message("Saved: interaction_results_FDR_cluster_time.csv")
+
+## Heatmap
+heatmap_df <- interaction_results %>%
+  select(label, time_clean, p_adj_fdr) %>%
+  mutate(sig = case_when(
+    p_adj_fdr < 0.001 ~ "***",
+    p_adj_fdr < 0.01  ~ "**",
+    p_adj_fdr < 0.05  ~ "*",
+    TRUE ~ ""
+  ))
+
+ggplot(heatmap_df, aes(x = time_clean, y = label, fill = p_adj_fdr)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sig), color = "white", size = 10) +
+  scale_fill_viridis(option = "rocket", direction = 1, limits = c(0,1), name = "FDR p-value") +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  labs(title = "Treatment Differences per Cluster × Timepoint",
+       x = "Timepoint", y = "Cluster")
+
+```
+
+```{r}
+emm_list <- list()
+clusters <- unique(blood_df$label)
+
+for(cl in clusters){
+  
+  d <- blood_df %>% filter(label == cl)
+  
+  # Fit mixed model
+  m <- lmer(prop ~ treatment_clean * time_clean + Age + (1 | donor), data = d)
+  
+  # Estimated marginal means
+  emm <- emmeans(m, ~ treatment_clean | time_clean)
+  emm_df <- as.data.frame(emm)
+  emm_df$label <- cl
+  
+  emm_list[[cl]] <- emm_df
+}
+
+emm_results <- bind_rows(emm_list)
+
+# Plot longitudinal EMMs
+ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
+  geom_point(size = 3) +
+  geom_line(size = 1.2) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2) +
+  facet_wrap(~ label, scales = "free_y") +
+  theme_minimal(base_size = 14) +
+  labs(x = "Timepoint", y = "Estimated proportion", color = "Treatment") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(values = c("mediumseagreen", "darkorchid"))+
+  theme(axis.text = element_text(colour="black", size = 14),
+  strip.text=element_text(colour="black", size=16, face="bold"))
+```
