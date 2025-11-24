@@ -250,7 +250,7 @@ cell_annotation_dict = {
     "5": "DC_mixed",
     "6": "DC_blister",
     "7": "CD8+T_blister",
-    "8": "Neutrophil_old_blister",
+    "8": "Neutrophil_aged_blister",
     "9": "CD8+T_blood",
     "10": "Treg_blister",
     "11": "NK_blood",
@@ -264,7 +264,7 @@ cell_annotation_dict = {
 }
 
 adata.obs["label"] = adata.obs["leiden_CytoVI"].map(cell_annotation_dict)
-cluster_palette= ["green", "limegreen", "red", "darkred", "hotpink", "mediumvioletred", "darkorchid", "mediumpurple", "grey", "goldenrod", "orange", "navy", "blue", "deepskyblue", "cyan", "royalblue", "lightcoral"]
+cluster_palette= ["green", "limegreen", "red", "darkred", "hotpink", "mediumvioletred", "darkorchid", "mediumpurple", "grey", "goldenrod", "orange", "cyan", "navy", "blue", "deepskyblue", "lightcoral"]
 ```
 
 ```{python}
@@ -359,39 +359,29 @@ blister_counts["prop"] = blister_counts.groupby(["donor", "time_clean", "treatme
 ```
 
 ```{python}
+#blood
 time_order = ["-72h", "0h", "6h", "24h", "48h", "72h"]
 blood_counts['time_clean'] = pd.Categorical(
     blood_counts['time_clean'],
     categories=time_order,
     ordered=True
 )
-
-# Remove rows where 'prop' is NaN
 blood_counts = blood_counts.dropna(subset=['prop'])
-
-# Keep only rows where 'label' contains "blood"
 blood_counts = blood_counts[blood_counts['label'].str.contains("blood", case=False)]
-
 if pd.api.types.is_categorical_dtype(blood_counts['label']):
     blood_counts['label'] = blood_counts['label'].cat.remove_unused_categories()
-
-blood_plot = sns.catplot(
-    data=blood_counts,
-    x="time_clean",
-    y="prop",
-    col="label",
-    col_wrap=4,
-    hue="treatment_clean",
-    palette=["mediumseagreen", "darkorchid"],
-    height=5,
-    aspect=1.5,
-    kind="point",         # Must specify kind
-    ci=None,              # Works with point plots
-    sharey=False,
-    markers='o',          # Point markers
-    linestyles='-',       # Connect points with lines
+#blister
+time_order = ["6h", "24h", "48h", "72h"]
+blister_counts['time_clean'] = pd.Categorical(
+    blister_counts['time_clean'],
+    categories=time_order,
+    ordered=True
 )
 
+blister_counts = blister_counts.dropna(subset=['prop'])
+blister_counts = blister_counts[blister_counts['label'].str.contains("blister", case=False)]
+if pd.api.types.is_categorical_dtype(blister_counts['label']):
+    blister_counts['label'] = blister_counts['label'].cat.remove_unused_categories()
 ```
 
 ## export dataframes for use in an R script to perform lmer
