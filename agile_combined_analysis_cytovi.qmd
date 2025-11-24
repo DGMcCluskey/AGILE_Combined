@@ -28,7 +28,9 @@ import scvi
 import torch  # type: ignore
 from rich import print  # type: ignore
 from scvi.external import cytovi  # type: ignore
+import seaborn as sns
 import seaborn.objects as so
+from plotnine import *
 
 os.environ["SCIPY_ARRAY_API"] = "1"
 
@@ -286,6 +288,17 @@ sc.pl.matrixplot(
 plt.savefig("annotated_heatmap.png", dpi=300)
 ```
 
+## some treatment names are wrong so unifying
+```{python}
+treatment_dict = {
+    "Guinness":"Guinness",
+    "guinness":"Guinness",
+    "Corona":"Corona",
+    "corona":"Corona"
+}
+
+adata.obs["treatment_clean"] = adata.obs["treatment"].map(treatment_dict)
+```
 
 ```{python}
 df = adata.obs
@@ -300,17 +313,43 @@ p = so.Plot(props, y="label", x = "prop", color="tissue").add(so.Bar(), so.Stack
 fig=p.plot()._figure
 fig.savefig("tissue_cluster_proportions.png", dpi=300, bbox_inches="tight")
 ```
+
+
 ```{python}
-df = adata.obs
+df = adata.obs.copy()
 
-counts = df.groupby(["label", "time", "treatment"]).size().unstack(fill_value=0)
-props  = counts.div(counts.sum(axis=1), axis=0).reset_index().melt(
-    id_vars="label",
-    var_name="tissue",
-    value_name="prop"
+df_blood = df[df["tissue"] == "blood"].copy()
+df_blister = df[df["tissue"] == "blister"].copy()
+
+
+# Count cells per donor × time × treatment × label
+blood_counts = (
+    df_blood.groupby(["donor", "time", "treatment_clean", "label"])
+      .size()
+      .reset_index(name="count")
 )
-p = so.Plot(props, y="label", x = "prop", color="tissue").add(so.Bar(), so.Stack())
-fig=p.plot()._figure
-fig.savefig("tissue_cluster_proportions.png", dpi=300, bbox_inches="tight")
 
+# Compute proportions within each donor × time × treatment
+blood_counts["prop"] = blood_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
+
+# Count cells per donor × time × treatment × label
+blister_counts = (
+    df_blister.groupby(["donor", "time", "treatment_clean", "label"])
+      .size()
+      .reset_index(name="count")
+)
+
+# Compute proportions within each donor × time × treatment
+bister_counts["prop"] = blister_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
+
+```
+
+
+```{python}
+p = (
+    ggplot(blood_counts, aes(x="time", y = "prop", colour="treatment_clean", group = d))+geom_point()+
+    facet_wrap("label", scales="free_y")
+)
+p.show()
+p.save("proportions_time.png", dpi=300, width=10,height=8)
 ```
