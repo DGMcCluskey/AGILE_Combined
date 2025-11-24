@@ -31,6 +31,7 @@ from scvi.external import cytovi  # type: ignore
 import seaborn as sns
 import seaborn.objects as so
 from plotnine import *
+import statsmodels.formula.api as smf
 
 os.environ["SCIPY_ARRAY_API"] = "1"
 
@@ -337,42 +338,51 @@ df_blister = df[df["tissue"] == "blister"].copy()
 
 # Count cells per donor × time × treatment × label
 blood_counts = (
-    df_blood.groupby(["donor", "time", "treatment_clean", "label"])
+    df_blood.groupby(["donor", "time_clean", "treatment_clean", "label"])
       .size()
       .reset_index(name="count")
 )
 
 # Compute proportions within each donor × time × treatment
-blood_counts["prop"] = blood_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
+blood_counts["prop"] = blood_counts.groupby(["donor", "time_clean", "treatment_clean"])["count"].transform(lambda x: x / x.sum()*100)
 
 # Count cells per donor × time × treatment × label
 blister_counts = (
-    df_blister.groupby(["donor", "time", "treatment_clean", "label"])
+    df_blister.groupby(["donor", "time_clean", "treatment_clean", "label"])
       .size()
       .reset_index(name="count")
 )
 
 # Compute proportions within each donor × time × treatment
-blister_counts["prop"] = blister_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
+blister_counts["prop"] = blister_counts.groupby(["donor", "time_clean", "treatment_clean"])["count"].transform(lambda x: x / x.sum()*100)
 
 ```
 
 ```{python}
-time_order = ["-72h", "0h", "4h", "6h", "24h", "48h", "72h"]
-blood_counts['time'] = pd.Categorical(
-    blood_counts['time'],
+time_order = ["-72h", "0h", "6h", "24h", "48h", "72h"]
+blood_counts['time_clean'] = pd.Categorical(
+    blood_counts['time_clean'],
     categories=time_order,
     ordered=True
 )
 
+# Remove rows where 'prop' is NaN
+blood_counts = blood_counts.dropna(subset=['prop'])
+
+# Keep only rows where 'label' contains "blood"
+blood_counts = blood_counts[blood_counts['label'].str.contains("blood", case=False)]
+
+if pd.api.types.is_categorical_dtype(blood_counts['label']):
+    blood_counts['label'] = blood_counts['label'].cat.remove_unused_categories()
+
 blood_plot = sns.catplot(
     data=blood_counts,
-    x="time",
+    x="time_clean",
     y="prop",
     col="label",
     col_wrap=4,
     hue="treatment_clean",
-    palette=cluster_palette,
+    palette=["mediumseagreen", "darkorchid"],
     height=5,
     aspect=1.5,
     kind="point",         # Must specify kind
@@ -382,5 +392,10 @@ blood_plot = sns.catplot(
     linestyles='-',       # Connect points with lines
 )
 
+```
 
+## export dataframes for use in an R script to perform lmer
+```{python}
+blood_counts.to_csv("agile_blood_proportions_df.csv", index=False)
+blister_counts.to_csv("agile_blister_proportions_df.csv", index=False)
 ```
