@@ -289,6 +289,7 @@ plt.savefig("annotated_heatmap.png", dpi=300)
 ```
 
 ## some treatment names are wrong so unifying
+## make sure 4h times are combined with 6h
 ```{python}
 treatment_dict = {
     "Guinness":"Guinness",
@@ -298,6 +299,18 @@ treatment_dict = {
 }
 
 adata.obs["treatment_clean"] = adata.obs["treatment"].map(treatment_dict)
+
+
+time_dict = {
+    "-72h":"-72h",
+    "0h":"0h",
+    "4h":"6h",
+    "6h":"6h",
+    "24h":"24h",
+    "48h":"48h",
+    "72h":"72h"
+}
+adata.obs["time_clean"] = adata.obs["time"].map(time_dict)
 ```
 
 ```{python}
@@ -340,16 +353,34 @@ blister_counts = (
 )
 
 # Compute proportions within each donor × time × treatment
-bister_counts["prop"] = blister_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
+blister_counts["prop"] = blister_counts.groupby(["donor", "time", "treatment_clean"])["count"].transform(lambda x: x / x.sum())
 
 ```
 
-
 ```{python}
-p = (
-    ggplot(blood_counts, aes(x="time", y = "prop", colour="treatment_clean", group = d))+geom_point()+
-    facet_wrap("label", scales="free_y")
+time_order = ["-72h", "0h", "4h", "6h", "24h", "48h", "72h"]
+blood_counts['time'] = pd.Categorical(
+    blood_counts['time'],
+    categories=time_order,
+    ordered=True
 )
-p.show()
-p.save("proportions_time.png", dpi=300, width=10,height=8)
+
+blood_plot = sns.catplot(
+    data=blood_counts,
+    x="time",
+    y="prop",
+    col="label",
+    col_wrap=4,
+    hue="treatment_clean",
+    palette=cluster_palette,
+    height=5,
+    aspect=1.5,
+    kind="point",         # Must specify kind
+    ci=None,              # Works with point plots
+    sharey=False,
+    markers='o',          # Point markers
+    linestyles='-',       # Connect points with lines
+)
+
+
 ```
