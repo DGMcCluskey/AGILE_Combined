@@ -12,6 +12,7 @@ library(purrr)
 library(readr)
 library(viridis)
 library(readxl)
+library(ggplot2)
 ```
 
 ```{r}
@@ -252,7 +253,7 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated % of blood/blister cells") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(values = c("mediumseagreen", "darkgreen", "palevioletred2", "darkorchid"))+
+  scale_colour_manual(values = c("mediumseagreen", "palevioletred2", "darkgreen", "darkorchid"))+
   theme(axis.text = element_text(colour="black", size = 14),
   strip.text=element_text(colour="black", size=16, face="bold"))+
     scale_shape_manual(values=c(16,15,17,18))
