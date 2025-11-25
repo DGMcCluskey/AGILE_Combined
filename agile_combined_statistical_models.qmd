@@ -14,6 +14,7 @@ library(viridis)
 library(readxl)
 library(ggplot2)
 library(tidyr)
+library(RColorBrewer)
 ```
 
 ```{r}
@@ -167,17 +168,26 @@ ggplot(heatmap_df, aes(x = time_clean, y = label, fill = p_adj_fdr)) +
   labs(title = "Treatment Differences per Cluster × Timepoint",
        x = "Timepoint", y = "Cluster")
 
-ggplot(heatmap_df, aes(x = time_clean, y = label, fill = estimate)) +
-  geom_point(shape=21, colour="black", size = 8)+
-  geom_text(aes(label = sig), color = "black", size = 10, vjust=2) +
-  scale_fill_distiller(palette = "RdBu", direction = -1) +
+heatmap_df <- interaction_results %>%
+  select(label, time_clean, p_adj_fdr, estimate) %>%
+  mutate(FDR = case_when(
+    p_adj_fdr < 0.001 ~ "< 0.001",
+    p_adj_fdr < 0.01  ~ "< 0.01",
+    p_adj_fdr < 0.05  ~ "< 0.05",
+    TRUE ~ ""
+  ))
+
+ggplot(heatmap_df, aes(x = time_clean, y = label, fill = estimate, shape = FDR)) +
+  geom_point(colour="black", size = 8)+
+  #geom_text(aes(label = sig), color = "black", size = 10, vjust=2) +
+  scale_fill_distiller(palette = "RdBu") +
   theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.grid = element_blank()
+  theme(panel.grid = element_blank(),
+    axis.text=element_text(size=12,colour="black")
   ) +
   labs(title = "Treatment Differences per Cluster × Timepoint",
-       x = "Timepoint", y = "Cluster")
+       x = "Timepoint", y = "Cluster")+
+        scale_shape_manual(values=c(21,22,24,23))
 ```
 
 ```
