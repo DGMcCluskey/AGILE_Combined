@@ -13,6 +13,7 @@ library(readr)
 library(viridis)
 library(readxl)
 library(ggplot2)
+library(tidyr)
 ```
 
 ```{r}
@@ -83,7 +84,7 @@ heatmap_df <- interaction_results %>%
     TRUE ~ ""
   ))
 
-ggplot(heatmap_df, aes(x = time_clean, y = label, fill = p_adj_fdr)) +
+ggplot(heatmap_df, aes(x = time_clean, y = label, fill = -log10(p_adj_fdr))) +
   geom_tile(color = "white") +
   geom_text(aes(label = sig), color = "white", size = 10) +
   scale_fill_viridis(option = "rocket", direction = 1, limits = c(0,1), name = "FDR p-value") +
@@ -146,7 +147,7 @@ message("Saved: interaction_results_FDR_cluster_time.csv")
 
 ## Heatmap
 heatmap_df <- interaction_results %>%
-  select(label, time_clean, p_adj_fdr) %>%
+  select(label, time_clean, p_adj_fdr, estimate) %>%
   mutate(sig = case_when(
     p_adj_fdr < 0.001 ~ "***",
     p_adj_fdr < 0.01  ~ "**",
@@ -166,7 +167,21 @@ ggplot(heatmap_df, aes(x = time_clean, y = label, fill = p_adj_fdr)) +
   labs(title = "Treatment Differences per Cluster × Timepoint",
        x = "Timepoint", y = "Cluster")
 
+ggplot(heatmap_df, aes(x = time_clean, y = label, fill = estimate)) +
+  geom_point(shape=21, colour="black", size = 8)+
+  geom_text(aes(label = sig), color = "black", size = 10, vjust=2) +
+  scale_fill_distiller(palette = "RdBu", direction = -1) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  labs(title = "Treatment Differences per Cluster × Timepoint",
+       x = "Timepoint", y = "Cluster")
 ```
+
+```
+
 ```{r}
 emm_list <- list()
 clusters <- unique(blood_df$label)
@@ -259,9 +274,19 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
     scale_shape_manual(values=c(16,15,17,18))
 ```
 
+## to try and plot this data in a digestible way, i'm taking inspiration from the dotplot style longitdinal proportion data you see in scRNA-seq papers
+```{r}
+ggplot(emm_all, aes(x=time_clean, y = celltype, fill = estimated_mean, size = ))
+```
 
 ## modelling marker expression
+## start with an overview heatmap to see if there are notable patterns
 ```{r}
-summary_df <- read.csv("mark")
+summary_df <- read.csv("marker_avg_expression_df.csv")
+summary_df <-  pivot_longer(summary_df, names_to="marker", values_to="mean_expression", cols=7:37)
+```
 
+## for this to make sense, blister/blood populations should only have the times they were actually collected. additionally, only markers relevant to clusters should be shown, so further subsetting required. finally, scaled expression required too
+```{r}
+ggplot(summary_df, aes(x=time, y = marker, fill = mean_expression))+geom_tile()+facet_wrap(~label)
 ```

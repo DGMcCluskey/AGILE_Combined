@@ -505,4 +505,5 @@ metadata_df = df.obs.reset_index()  # reset_index to make obs_names a column
 final_df = pd.concat([metadata_df, expr_df.reset_index(drop=True)], axis=1)
 
 final_df.head()
+final_df.to_csv("marker_avg_expression_df.csv", index=False)
 ```
