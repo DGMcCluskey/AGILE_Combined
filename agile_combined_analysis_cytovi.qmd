@@ -213,9 +213,9 @@ plt.savefig("marker_umaps.png", dpi=300)
 ```
 
 ```{python}
-sc.tl.leiden(adata, resolution=0.4, key_added="leiden_CytoVI", flavor="igraph")
-sc.pl.umap(adata, color="leiden_CytoVI", legend_loc="on data")
-sc.pl.umap(adata, color="time")
+for res in [0.5,0.6,0.7,0.8,0.9,1]:
+    sc.tl.leiden(adata, resolution=0.4, key_added="leiden_res_"+str(res), flavor="igraph")
+sc.pl.umap(adata, color="leiden_res_0.7", legend_loc="on data")
 ```
 
 ```{python}
@@ -275,7 +275,7 @@ plt.savefig("UMAP_annotated.png", dpi=300)
 ```
 
 ```{python}
-sc.tl.dendrogram(adata, groupby="label")
+#sc.tl.dendrogram(adata, groupby="label")
 plt.figure()
 sc.pl.matrixplot(
     adata,
@@ -284,7 +284,7 @@ sc.pl.matrixplot(
     layer="imputed",
     dendrogram=True,
     standard_scale="var",
-    cmap="mako_r",
+    cmap="Reds",
     figsize=(12,7)
 )
 plt.savefig("annotated_heatmap.png", dpi=300)
@@ -389,4 +389,13 @@ if pd.api.types.is_categorical_dtype(blister_counts['label']):
 ```{python}
 blood_counts.to_csv("agile_blood_proportions_df.csv", index=False)
 blister_counts.to_csv("agile_blister_proportions_df.csv", index=False)
+```
+
+```{python}
+sc.pl.dotplot(adata, ["CD3", "CD4", "CD8", "FOXP3", "CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L"], groupby="label", dendrogram=True, layer="imputed", standard_scale="var")
+```
+```{python}
+plt.figure()
+sc.pl.correlation_matrix(adata, "label", figsize=(20,10))
+plt.savefig("cluster_correlation.png", dpi=500, bbox_inches="tight")
 ```
