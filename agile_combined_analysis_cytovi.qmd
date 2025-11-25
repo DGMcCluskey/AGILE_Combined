@@ -489,28 +489,20 @@ plt.savefig("cluster_correlation.png", dpi=500, bbox_inches="tight")
 ```
 
 ```{python}
-marker = "CD56"
-layer = "imputed"   # or None for raw X
+df = sc.get.aggregate(adata, by =["sample_id", "time", "treatment", "label", "tissue"], func ="mean", layer="imputed")
+df
+```
 
-# Pull data for the marker
-values = (
-    adata.layers[layer][:, adata.var_names == marker].flatten()
-    if layer is not None else
-    adata[:, marker].X.flatten()
+```{python}
+expr_df = pd.DataFrame(
+    df.layers["mean"],  # expression matrix
+    index=df.obs_names,  # row names
+    columns=df.var_names  # marker/gene names
 )
 
-df = adata.obs.copy()
-df[marker] = values
+# Combine with metadata
+metadata_df = df.obs.reset_index()  # reset_index to make obs_names a column
+final_df = pd.concat([metadata_df, expr_df.reset_index(drop=True)], axis=1)
 
-# Faceted histogram
-g = sns.FacetGrid(
-    df, 
-    col="label",         # facet variable — change to label/treatment/etc.
-    col_wrap=3,
-    sharex=True,
-    sharey=False
-)
-g.map_dataframe(sns.histplot, x=marker, bins=50, kde=False)
-
-plt.show()
+final_df.head()
 ```

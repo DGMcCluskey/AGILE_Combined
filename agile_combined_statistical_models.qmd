@@ -258,3 +258,10 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
   strip.text=element_text(colour="black", size=16, face="bold"))+
     scale_shape_manual(values=c(16,15,17,18))
 ```
+
+
+## modelling marker expression
+```{r}
+summary_df <- read.csv("mark")
+
+```
