@@ -213,20 +213,24 @@ plt.savefig("marker_umaps.png", dpi=300)
 ```
 
 ```{python}
-for res in [0.5,0.6,0.7,0.8,0.9,1]:
-    sc.tl.leiden(adata, resolution=0.4, key_added="leiden_res_"+str(res), flavor="igraph")
-sc.pl.umap(adata, color="leiden_res_0.7", legend_loc="on data")
+for res in [0.4,0.5,0.6,0.7,0.8,0.9,1]:
+    sc.tl.leiden(adata, resolution=res, key_added="leiden_res_"+str(res), flavor="igraph")
+sc.pl.umap(adata, color=["leiden_res_0.7", "leiden_res_0.8", "leiden_res_0.9", "leiden_res_1"], legend_loc="on data", frameon = False, size =5)
+```
+
+```{python}
+sc.pl.umap(adata, color=["FOXP3", "CD3", "CD66b"], cmap="Reds", size=5, layer="scaled")
 ```
 
 ```{python}
 sc.pl.matrixplot(
     adata,
     var_names=adata.var_names,
-    groupby="leiden_CytoVI",
+    groupby="leiden_res_1",
     layer="imputed",
     dendrogram=True,
     standard_scale="var",
-    cmap="mako",
+    cmap="Reds",
 )
 ```
 
@@ -267,6 +271,11 @@ adata.obs["label"] = adata.obs["leiden_CytoVI"].map(cell_annotation_dict)
 cluster_palette= ["green", "limegreen", "red", "darkred", "hotpink", "mediumvioletred", "darkorchid", "mediumpurple", "grey", "goldenrod", "orange", "cyan", "navy", "blue", "deepskyblue", "lightcoral"]
 ```
 
+## save/load here
+```{python}
+adata.write("agile_combined_annotated.h5ad")
+adata = sc.read_h5ad("agile_combined_annotated.h5ad")
+```
 ```{python}
 rcParams["figure.figsize"] = (10, 10)
 plt.figure()
