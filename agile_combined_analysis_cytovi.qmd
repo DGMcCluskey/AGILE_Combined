@@ -219,13 +219,14 @@ sc.pl.umap(adata, color=["leiden_res_0.7", "leiden_res_0.8", "leiden_res_0.9", "
 ```
 
 ```{python}
-sc.pl.umap(adata, color=["FOXP3", "CD3", "CD66b"], cmap="Reds", size=5, layer="scaled")
+sc.pl.umap(adata, color=["leiden_res_1"], size=5, legend_loc="on data")
+sc.pl.umap(adata, color=["tissue", "time", "treatment"], size=5)
 ```
 
 ```{python}
 sc.pl.matrixplot(
     adata,
-    var_names=adata.var_names,
+    var_names=["CD3", "CD4", "CD8", "FOXP3", "CD25", "CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L", "CD20"],
     groupby="leiden_res_1",
     layer="imputed",
     dendrogram=True,
@@ -235,52 +236,105 @@ sc.pl.matrixplot(
 ```
 
 ```{python}
-sc.pl.stacked_violin(adata, var_names=adata.var_names, groupby="leiden_CytoVI", layer="imputed", stripplot=False, use_raw=False)
+sc.pl.stacked_violin(adata, var_names=["CD3", "CD4", "CD8", "CD20", "CD14", "CD16", "FOXP3"], groupby="leiden_res_1", layer="scaled", stripplot=False, use_raw=False)
 ```
 
 ```{python}
-potential_neuts= adata[adata.obs["leiden_CytoVI"].isin(["13","18","16","17","8"])].copy()
+potential_neuts= adata[adata.obs["leiden_res_1"].isin(["12","20","25","22","30", "27", "28", "29"])].copy()
 cytovi.plot_histogram(
-    potential_neuts, marker=["CD62L", "CD16", "CD184", "CD15", "CD182"], layer_key="imputed", groupby="leiden_CytoVI", return_plot=True
+    potential_neuts, marker=["CD62L", "CD16", "CD184", "CD15", "CD182"], layer_key="imputed", groupby="leiden_res_1", return_plot=True
+)
+```
+
+```{python}
+potential_mono= adata[adata.obs["leiden_res_1"].isin(["5", "7", "23", "8", "17", "16"])].copy()
+cytovi.plot_histogram(
+    potential_mono, marker=["CD14", "CD16", "HLA-DR", "CD1c"], layer_key="imputed", groupby="leiden_res_1", return_plot=True
 )
 ```
 ```{python}
+prop_table = (
+    adata.obs
+        .pivot_table(index="donor", columns="leiden_res_1", aggfunc="size", fill_value=0)
+)
+
+# Convert counts to proportions
+prop_table = prop_table.div(prop_table.sum(axis=1), axis=0)
+
+# Plot stacked bar chart
+fig, ax = plt.subplots(figsize=(12,6))
+
+prop_table.plot(
+    kind="bar",
+    stacked=True,
+    ax=ax,
+    colormap="tab20"
+)
+
+ax.set_ylabel("Proportion of cells")
+ax.set_xlabel("Donor")
+ax.set_title("Cell-type proportions per donor")
+ax.tick_params(axis='x', rotation=45)
+
+ax.legend(
+    title="Cell type",
+    bbox_to_anchor=(0.5, -0.25),   # center below plot
+    loc='upper center',
+    ncol=8,                        # number of columns in legend (adjust as needed)
+    frameon=False
+)
+```
+
+```{python}
 cell_annotation_dict = {
     "0": "CD8+T_blister",
-    "1": "NK_blister",
-    "2": "CD4+T_blister",
-    "3": "Classical_monocyte_blister",
-    "4": "CD8+T_blister",
-    "5": "DC_mixed",
-    "6": "DC_blister",
-    "7": "CD8+T_blister",
-    "8": "Neutrophil_aged_blister",
-    "9": "CD8+T_blood",
-    "10": "Treg_blister",
-    "11": "NK_blood",
-    "12": "CD4+T_blood",
-    "13": "Neutrophil_aged_blood",
-    "14": "Classical_monocyte_blood",
-    "15": "NKT_blister",
-    "16": "Neutrophil_young_blood",
-    "17": "Neutrophil_mature_blood",
-    "18": "Neutrophil_mature_blood"
+    "1": "CD8+T_blister",
+    "2": "NK_blister",
+    "3": "CD4+T_blister",
+    "4": "Treg_blister",
+    "5": "DC_blister",
+    "6": "CD8+T_blister",
+    "7": "DC_blister",
+    "8": "CD1c+_blister",
+    "9": "CD8+T_blister",
+    "10": "CD8+T_blister",
+    "11": "CD8+T_blister",
+    "12": "Neutrophil_aged_blister",
+    "13": "CD8+T_blood",
+    "14": "Debris/doublets",
+    "15": "NK_blister",
+    "16": "CD8+T_blood",
+    "17": "DC(CD1c-)_blood",
+    "18": "Debris/doublets",
+    "19": "NK_blood",
+    "20": "Neutrophil_aged_blister",
+    "21": "CD4+T_blood",
+    "22": "Neutrophil_young_blood",
+    "23": "Classical_mono_blood",
+    "24": "Invariant_T_blister",
+    "25": "Neutrophil_mature_blister",
+    "26": "CD4+T_blood",
+    "27": "Neutrophil_aged_blood",
+    "28": "Neutrophil_mature_blood",
+    "29": "Neutrophil_mature_blood",
+    "30": "Neutrophil_mature_blood"
 }
 
-adata.obs["label"] = adata.obs["leiden_CytoVI"].map(cell_annotation_dict)
-cluster_palette= ["green", "limegreen", "red", "darkred", "hotpink", "mediumvioletred", "darkorchid", "mediumpurple", "grey", "goldenrod", "orange", "cyan", "navy", "blue", "deepskyblue", "lightcoral"]
+adata.obs["label"] = adata.obs["leiden_res_1"].map(cell_annotation_dict)
+cluster_palette= ["indianred", "green", "limegreen", "darkorchid", "purple", "darkred", "red", "chocolate", "grey", "hotpink", "goldenrod", "darkgoldenrod", "deepskyblue", "blue", "darkblue", "darkcyan", "cyan", "greenyellow"]
 ```
 
 ## save/load here
 ```{python}
-adata.write("agile_combined_annotated.h5ad")
+#adata.write("agile_combined_annotated.h5ad")
 adata = sc.read_h5ad("agile_combined_annotated.h5ad")
 ```
+
 ```{python}
 rcParams["figure.figsize"] = (10, 10)
 plt.figure()
 sc.pl.umap(adata, color="label", legend_loc="on data", legend_fontoutline=2, frameon = False, size =5, palette=cluster_palette, legend_fontsize="small", title="annotated UMAP")
-plt.savefig("UMAP_annotated.png", dpi=300)
+plt.savefig("UMAP_annotated.png", dpi=300, bbox_inches="tight")
 ```
 
 ```{python}
@@ -299,6 +353,24 @@ sc.pl.matrixplot(
 plt.savefig("annotated_heatmap.png", dpi=300)
 ```
 
+## do a second heatmap without debris/doublets and the invariant t cells (as these dominate the sacale of some markers)
+```{python}
+remove = ["Debris/doublets", "Invariant_T_blister"]
+adata_trim = adata[~adata.obs["label"].isin(remove)].copy()
+sc.tl.dendrogram(adata_trim, groupby="label")
+plt.figure()
+sc.pl.matrixplot(
+    adata_trim,
+    var_names=["CD3", "CD4", "CD8", "FOXP3", "CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L"],
+    groupby="label",
+    layer="imputed",
+    dendrogram=True,
+    standard_scale="var",
+    cmap="Reds",
+    figsize=(12,7)
+)
+plt.savefig("annotated_heatmap_trimmed.png", dpi=300)
+```
 ## some treatment names are wrong so unifying
 ## make sure 4h times are combined with 6h
 ```{python}
@@ -338,9 +410,16 @@ fig=p.plot()._figure
 fig.savefig("tissue_cluster_proportions.png", dpi=300, bbox_inches="tight")
 ```
 
+```{python}
+plt.figure()
+sc.pl.umap(adata, color=["tissue", "donor", "treatment"], size=5)
+plt.savefig("umap_metadata.png",dpi=300,bbox_inches="tight")
+```
 
 ```{python}
 df = adata.obs.copy()
+cluster_to_remove = "Debris/doublets"
+df = df[df["label"] != cluster_to_remove].copy()
 
 df_blood = df[df["tissue"] == "blood"].copy()
 df_blister = df[df["tissue"] == "blister"].copy()
@@ -405,6 +484,34 @@ sc.pl.dotplot(adata, ["CD3", "CD4", "CD8", "FOXP3", "CD56", "CD14", "CD16", "CD1
 ```
 ```{python}
 plt.figure()
-sc.pl.correlation_matrix(adata, "label", figsize=(20,10))
+sc.pl.correlation_matrix(adata, "label", figsize=(10,10))
 plt.savefig("cluster_correlation.png", dpi=500, bbox_inches="tight")
+```
+
+```{python}
+marker = "CD56"
+layer = "imputed"   # or None for raw X
+
+# Pull data for the marker
+values = (
+    adata.layers[layer][:, adata.var_names == marker].flatten()
+    if layer is not None else
+    adata[:, marker].X.flatten()
+)
+
+df = adata.obs.copy()
+df[marker] = values
+
+# Faceted histogram
+g = sns.FacetGrid(
+    df, 
+    col="label",         # facet variable — change to label/treatment/etc.
+    col_wrap=3,
+    sharex=True,
+    sharey=False
+)
+g.map_dataframe(sns.histplot, x=marker, bins=50, kde=False)
+
+plt.show()
+
 ```
