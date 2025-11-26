@@ -496,4 +496,5 @@ df = pd.concat([df, expr], axis=1)
 
 df.to_csv("agile_combined_expression_df.csv")
 
+sample_check = pd.DataFrame(df["sample_full"].unique())
 ```
