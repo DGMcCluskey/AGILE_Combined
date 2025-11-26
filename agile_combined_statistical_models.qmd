@@ -557,28 +557,6 @@ for (m in markers) {
 ## Combine all clusters
 interaction_results <- bind_rows(interaction_list)
 
-## Heatmap
-heatmap_df <- interaction_results %>%
-  select(label, time_clean, p_adj_fdr, estimate) %>%
-  mutate(sig = case_when(
-    p_adj_fdr < 0.001 ~ "***",
-    p_adj_fdr < 0.01  ~ "**",
-    p_adj_fdr < 0.05  ~ "*",
-    TRUE ~ ""
-  ))
-
-ggplot(heatmap_df, aes(x = time_clean, y = label, fill = p_adj_fdr)) +
-  geom_tile(color = "white") +
-  geom_text(aes(label = sig), color = "white", size = 10) +
-  scale_fill_viridis(option = "rocket", direction = 1, limits = c(0,1), name = "FDR p-value") +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.grid = element_blank()
-  ) +
-  labs(title = "Treatment Differences per Cluster × Timepoint",
-       x = "Timepoint", y = "Cluster")
-
 heatmap_df_blister <- interaction_results %>%
   select(label, time_clean, p_adj_fdr, estimate) %>%
   mutate(sig = case_when(
@@ -596,7 +574,7 @@ p_blister <- ggplot(heatmap_df_blister, aes(x = time_clean, y = label, fill = es
   theme(panel.grid = element_blank(),
     axis.text=element_text(size=12,colour="black")
   ) +
-  labs(title = "Difference in blister cluster proportions Guinness vs Corona",
+  labs(title = "Difference in marker expression Corona - Guinness",
        x = "Timepoint", y = "Cluster")
 
 p_blister
