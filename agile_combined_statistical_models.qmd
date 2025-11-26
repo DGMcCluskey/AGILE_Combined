@@ -368,11 +368,159 @@ ggplot(emm_all, aes(x=time_clean, y = celltype, fill = estimated_mean, size = ))
 ## modelling marker expression
 ## start with an overview heatmap to see if there are notable patterns
 ```{r}
-summary_df <- read.csv("marker_avg_expression_df.csv")
+summary_df <- read.csv("agile_combined_expression_df.csv")
 summary_df <-  pivot_longer(summary_df, names_to="marker", values_to="mean_expression", cols=7:37)
+summary_df$time <- factor(summary_df$time, levels = c("-72h", "0h", "4h", "6h", "24h", "48h", "72h"), labels = c("-72h", "0h", "6h", "6h", "24h", "48h", "72h"))
 ```
 
 ## for this to make sense, blister/blood populations should only have the times they were actually collected. additionally, only markers relevant to clusters should be shown, so further subsetting required. finally, scaled expression required too
 ```{r}
-ggplot(summary_df, aes(x=time, y = marker, fill = mean_expression))+geom_tile()+facet_wrap(~label)
+neuts <- filter(summary_df, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15"))
+ggplot(neuts, aes(x=time, y = marker, fill = mean_expression))+geom_tile()+facet_wrap(~label)
+```
+
+```{r}
+markers <- unique(neuts$marker)
+celltype <- c("Neutrophil_aged_blister")
+tissue_type <- "blister"
+model_input <- filter(neuts, label %in% celltype, tissue == tissue_type)
+model_input$time <- droplevels(model_input$time)
+analyse_marker <- function(marker_name) {
+  dat_marker <- model_input %>% filter(marker == marker_name)
+  print(marker_name)
+  print(table(dat_marker$treatment, dat_marker$time))
+  model <- tryCatch({
+    lmer(
+      mean_expression ~ treatment * time + (1 | donor),
+      data = dat_marker
+    )
+  }, error = function(e) {
+    message(paste("Model failed for marker", marker_name))
+    return(NULL)
+  })
+  
+  if (is.null(model)) return(NULL)
+  
+  emm <- emmeans(model, ~ treatment | time, type = "response")
+  contrasts <- contrast(emm, method = "pairwise")
+  list(
+    marker = marker_name,
+    model_summary = summary(model),
+    emmeans = emm,
+    contrasts = contrasts
+  )
+}
+```
+
+## run the model and get the results
+```{r}
+results_list <- lapply(markers, analyse_marker)
+names(results_list) <- markers
+
+# Filter out clusters where model failed (if any)
+results_list <- results_list[!sapply(results_list, is.null)]
+
+# Example: access contrasts for the first cluster
+print(results_list[[1]]$contrasts)
+```
+
+## here we access the results list, pulling out the emmeans and contrasts with a function
+## then combine into usable dataframes
+```{r}
+# Function to get EMMs + contrasts with p-values for plotting
+extract_emm_and_contrasts <- function(marker_name, results_list) {
+  emm_df <- as.data.frame(results_list[[marker_name]]$emmeans)
+  contrasts_df <- as.data.frame(results_list[[marker_name]]$contrasts)
+  
+  # Add cluster ID to both
+  emm_df$marker <- marker_name
+  contrasts_df$marker <- marker_name
+  
+  list(emm = emm_df, contrast = contrasts_df)
+}
+
+# Apply to all clusters
+emm_contrast_list <- lapply(names(results_list), extract_emm_and_contrasts, results_list = results_list)
+
+# Combine into data frames
+emm_all <- bind_rows(lapply(emm_contrast_list, `[[`, "emm"))
+contrast_all <- bind_rows(lapply(emm_contrast_list, `[[`, "contrast"))
+```
+
+## add a column specifying if a result was significant so that we can use these in the plot
+## add a value that is above the upper confidence interval by a little bit so that the asterisks will sit above them on the plot
+## join these columns back in witht he contrasts_all df
+```{r}
+# Extract timepoint and treatment comparison from contrast row names
+contrast_all <- contrast_all %>%
+  mutate(
+    sig_label = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01 ~ "**",
+      p.value < 0.05 ~ "*",
+      TRUE ~ ""
+    )
+  )
+
+max_prob <- emm_all %>%
+  group_by(marker) %>%
+  summarise(max_y = max(upper.CL, na.rm = TRUE)) %>%
+  mutate(label_y = max_y +0.05)
+
+contrast_all <- contrast_all %>%
+  left_join(max_prob, by = "marker")
+```
+
+## plot the results and save
+```{r}
+treg_markers <- c("FOXP3", "CD25", "CTLA4", "CD28", "CD127", "CD39", "CD62L", "CCR6", "CD69", "PD1", "TIGIT", "KI67", "HLA.DR", "CD47")
+myeloid_markers <- c("CD14", "CD16", "CD11b", "CD1c", "CD15", "CD39", "CD47", "CD62L", "CD69", "CD86", "HLA.DR", "KI67")
+CD8_markers <- c("CD25", "CD28", "CD47", "CD62L", "CCR6", "CD69", "PD1", "KI67", "CD103")
+neut_markers <- c("CD16", "GLUT1", "CXCR2", "TIGIT", "CD11b", "CD1c", "CD15", "CD66b", "CD62L", "CD28", "CD86", "KI67")
+NK_markers <- c("CD25", "CD16", "CD56", "CD28", "CD47", "CD62L", "CD69", "KI67", "CD103")
+marker_list <- switch(celltype,
+  "Treg" = treg_markers,
+  "CD4+T" = treg_markers,
+  "CD8+T" = CD8_markers,
+  "Classical_mono" = myeloid_markers,
+  "Intermediate_mono" = myeloid_markers,
+  "Non_classical_mono" = myeloid_markers,
+  "DC" = myeloid_markers,
+  "Neutrophils" = neut_markers,
+  "NK" = NK_markers,
+  stop("Unknown celltype specified")
+)
+
+plot1 <- ggplot(emm_all %>% filter(marker %in% marker_list), aes(x = time_new, y = emmean, colour = treatment, group = treatment)) +
+  geom_line(position = position_dodge(width=0.4), size=0.8) +
+  geom_point(position = position_dodge(width=0.4),size=2) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2,
+  position = position_dodge(width=0.4),size=0.8) +
+  geom_text(
+    data = contrast_all %>% filter(sig_label != "") %>% filter(marker %in% marker_list),
+    aes(x = time_new, y = label_y, label = sig_label),
+    inherit.aes = FALSE,
+    size = 7
+  ) +
+  facet_wrap(~marker, scales = "free_y") +
+  labs(
+    title = paste0(celltype, " marker expression"),
+    y = paste0("Expression"),
+    x = "Timepoint",
+    colour = "Treatment"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+scale_colour_manual(values=c("mediumseagreen", "darkorchid2"))+ 
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))+
+  theme(axis.text = element_text(size = 12, colour = "black"),
+  strip.text = element_text(size = 12, colour = "black", face = "bold"),
+  axis.title = element_text(size = 14, colour = "black"))+ 
+    theme(legend.text = element_text(size = 14),legend.title = element_text(size = 15))+
+  guides(colour = guide_legend(override.aes = list(size = 5)))
+plot1
+#change name of plot if neuts are excluded
+ggsave(plot=plot1,filename=paste0(celltype, "_marker_expression.png"), dpi = 500,
+height = 8, width = 12, bg="white")
+```
 ```

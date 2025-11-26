@@ -489,21 +489,11 @@ plt.savefig("cluster_correlation.png", dpi=500, bbox_inches="tight")
 ```
 
 ```{python}
-df = sc.get.aggregate(adata, by =["sample_id", "time", "treatment", "label", "tissue"], func ="mean", layer="imputed")
-df
-```
+# Convert relevant data to a dataframe
+df = adata.obs.copy()
+expr = pd.DataFrame(adata.layers["imputed"], index=adata.obs_names, columns=adata.var_names)
+df = pd.concat([df, expr], axis=1)
 
-```{python}
-expr_df = pd.DataFrame(
-    df.layers["mean"],  # expression matrix
-    index=df.obs_names,  # row names
-    columns=df.var_names  # marker/gene names
-)
+df.to_csv("agile_combined_expression_df.csv")
 
-# Combine with metadata
-metadata_df = df.obs.reset_index()  # reset_index to make obs_names a column
-final_df = pd.concat([metadata_df, expr_df.reset_index(drop=True)], axis=1)
-
-final_df.head()
-final_df.to_csv("marker_avg_expression_df.csv", index=False)
 ```
