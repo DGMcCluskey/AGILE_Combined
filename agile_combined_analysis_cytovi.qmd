@@ -416,6 +416,20 @@ sc.pl.umap(adata, color=["tissue", "donor", "treatment"], size=5)
 plt.savefig("umap_metadata.png",dpi=300,bbox_inches="tight")
 ```
 
+## plotting neut markers across neut clusters to see how different
+```{python}
+labels_to_keep = [
+    "Neutrophil_mature_blood",
+    "Neutrophil_mature_blister",
+    "Neutrophil_aged_blood",
+    "Neutrophil_young_blood",
+    "Neutrophil_aged_blister"
+]
+
+adata_sub = adata[adata.obs["label"].isin(labels_to_keep)].copy()
+sc.pl.stacked_violin(adata_sub, var_names=["CD16", "CD62L"], groupby="label", layer = "imputed", swap_axes=True)
+```
+
 ```{python}
 df = adata.obs.copy()
 cluster_to_remove = "Debris/doublets"
