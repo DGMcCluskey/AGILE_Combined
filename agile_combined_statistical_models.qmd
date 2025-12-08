@@ -391,191 +391,147 @@ ggplot(neuts, aes(x=time_clean, y = marker, fill = mean_expression))+geom_tile()
 
 ```{r}
 markers <- unique(neuts$marker)
-celltype <- c("Neutrophil_mature_blister")
-tissue_type <- "blister"
-model_input <- neuts %>% 
-  filter(label %in% celltype, tissue == tissue_type)
-analyse_marker <- function(marker_name) {
-  dat_marker <- model_input %>% filter(marker == marker_name)
-  print(unique(dat_marker$label))
-  print(unique(dat_marker$tissue))
-  print(table(dat_marker$treatment_clean, dat_marker$time_clean))
-  model <- tryCatch({
-    lmer(
-      mean_expression ~ treatment_clean * time_clean + (1 | donor),
-      data = dat_marker
-    )
-  }, error = function(e) {
-    message(paste("Model failed for marker", marker_name))
-    return(NULL)
-  })
-  
-  if (is.null(model)) return(NULL)
-  
-  emm <- emmeans(model, ~ treatment_clean | time_clean, type = "response")
-  contrasts <- contrast(emm, method = "pairwise")
-  list(
-    marker = marker_name,
-    model_summary = summary(model),
-    emmeans = emm,
-    contrasts = contrasts
-  )
-}
-```
+labels  <- unique(neuts$label)
 
-## run the model and get the results
-```{r}
-results_list <- lapply(markers, analyse_marker)
-names(results_list) <- markers
-
-# Filter out clusters where model failed (if any)
-results_list <- results_list[!sapply(results_list, is.null)]
-
-# Example: access contrasts for the first cluster
-print(results_list[[1]]$contrasts)
-```
-
-## here we access the results list, pulling out the emmeans and contrasts with a function
-## then combine into usable dataframes
-```{r}
-# Function to get EMMs + contrasts with p-values for plotting
-extract_emm_and_contrasts <- function(marker_name, results_list) {
-  emm_df <- as.data.frame(results_list[[marker_name]]$emmeans)
-  contrasts_df <- as.data.frame(results_list[[marker_name]]$contrasts)
-  
-  # Add cluster ID to both
-  emm_df$marker <- marker_name
-  contrasts_df$marker <- marker_name
-  
-  list(emm = emm_df, contrast = contrasts_df)
-}
-
-# Apply to all clusters
-emm_contrast_list <- lapply(names(results_list), extract_emm_and_contrasts, results_list = results_list)
-
-# Combine into data frames
-emm_all <- bind_rows(lapply(emm_contrast_list, `[[`, "emm"))
-contrast_all <- bind_rows(lapply(emm_contrast_list, `[[`, "contrast"))
-```
-
-## add a column specifying if a result was significant so that we can use these in the plot
-## add a value that is above the upper confidence interval by a little bit so that the asterisks will sit above them on the plot
-## join these columns back in witht he contrasts_all df
-```{r}
-# Extract timepoint and treatment comparison from contrast row names
-contrast_all <- contrast_all %>%
-  mutate(
-    sig_label = case_when(
-      p.value < 0.001 ~ "***",
-      p.value < 0.01 ~ "**",
-      p.value < 0.05 ~ "*",
-      TRUE ~ ""
-    )
-  )
-
-max_prob <- emm_all %>%
-  group_by(marker) %>%
-  summarise(max_y = max(upper.CL, na.rm = TRUE)) %>%
-  mutate(label_y = max_y +0.005)
-
-contrast_all <- contrast_all %>%
-  left_join(max_prob, by = "marker")
-```
-
-## plot the results and save
-```{r}
-plot1 <- ggplot(emm_all, aes(x = time_clean, y = emmean, colour = treatment_clean, group = treatment_clean)) +
-  geom_line(position = position_dodge(width=0.4), size=0.8) +
-  geom_point(position = position_dodge(width=0.4),size=2) +
-  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2,
-  position = position_dodge(width=0.4),size=0.8) +
-  geom_text(
-    data = contrast_all %>% filter(sig_label != ""),
-    aes(x = time_clean, y = label_y, label = sig_label),
-    inherit.aes = FALSE,
-    size = 7
-  ) +
-  facet_wrap(~marker, scales = "free_y") +
-  labs(
-    title = paste0(celltype, " marker expression"),
-    y = paste0("Expression"),
-    x = "Timepoint",
-    colour = "Treatment"
-  ) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+scale_colour_manual(values=c("mediumseagreen", "darkorchid2"))+ 
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))+
-  theme(axis.text = element_text(size = 12, colour = "black"),
-  strip.text = element_text(size = 12, colour = "black", face = "bold"),
-  axis.title = element_text(size = 14, colour = "black"))+ 
-    theme(legend.text = element_text(size = 14),legend.title = element_text(size = 15))+
-  guides(colour = guide_legend(override.aes = list(size = 5)))
-plot1
-#change name of plot if neuts are excluded
-ggsave(plot=plot1,filename=paste0(celltype, "_marker_expression.png"), dpi = 500,
-height = 8, width = 12, bg="white")
-```
-
-```{r}
-markers <- unique(neuts$marker)
-celltype <- c("Neutrophil_mature_blister")
-tissue_type <- "blister"
-neuts$time_clean <- factor(neuts$time_clean, levels = c("-72h", "0h", "6h","24h","48h","72h"))
-model_input <- neuts %>% 
-  filter(label %in% celltype, tissue == tissue_type)
 interaction_list <- list()
 
-for (m in markers) {
-  
-  message("Running model for cluster: ", m)
-  
-  d <- model_input %>% filter(marker == m)
-  
-  # Fit mixed model
-  mod <- lmer(mean_expression ~ treatment_clean * time_clean + (1 | donor), data = d)
-  
-  # EMMs
-  emm <- emmeans(mod, ~ treatment_clean * time_clean)
-  
-  # Treatment contrasts within each timepoint
-  inter <- contrast(emm, method = "pairwise", by = "time_clean")
-  inter_df <- as.data.frame(inter)
-  inter_df$label <- m
-  
-  # FDR correction within **each cluster × time**
-  inter_df <- inter_df %>%
-    group_by(time_clean) %>%
-    mutate(p_adj_fdr = p.adjust(p.value, method = "fdr")) %>%
-    ungroup()
-  
-  # Keep only the treatment comparison of interest (e.g., "drug - control")
-  inter_df <- inter_df %>% filter(grepl("-", contrast))
-  
-  interaction_list[[m]] <- inter_df
+for (lab in labels) {
+
+  message("Running models for label (cluster): ", lab)
+
+  # Determine tissue from label name
+  tissue_for_label <- ifelse(grepl("_blood$", lab), "blood", "blister")
+
+  message("  Using tissue: ", tissue_for_label)
+
+  # Filter data for correct label + tissue
+  model_input_label <- neuts %>%
+    filter(label == lab, tissue == tissue_for_label)
+
+  for (m in markers) {
+
+    message("    → marker: ", m)
+
+    d <- model_input_label %>% filter(marker == m)
+
+    # Skip if there's no usable data
+    if (nrow(d) < 5 || length(unique(d$donor)) < 2) next
+
+    # Mixed model
+    mod <- lmer(mean_expression ~ treatment_clean * time_clean + (1 | donor),
+                data = d)
+
+    emm <- emmeans(mod, ~ treatment_clean * time_clean)
+    inter <- contrast(emm, method = "pairwise", by = "time_clean")
+    inter_df <- as.data.frame(inter)
+
+    inter_df$label  <- lab
+    inter_df$marker <- m
+    inter_df$tissue <- tissue_for_label
+
+    # FDR correction per timepoint
+    inter_df <- inter_df %>%
+      group_by(time_clean) %>%
+      mutate(p_adj_fdr = p.adjust(p.value, method = "fdr")) %>%
+      ungroup()
+
+    # Keep drug - control comparisons only
+    inter_df <- inter_df %>% filter(grepl("-", contrast))
+
+    interaction_list[[paste(lab, m, sep = "__")]] <- inter_df
+  }
 }
 
-## Combine all clusters
 interaction_results <- bind_rows(interaction_list)
+p1  <- quantile(interaction_results$estimate, 0.01, na.rm = TRUE)
+p99 <- quantile(interaction_results$estimate, 0.99, na.rm = TRUE)
+lim <- max(abs(p1), abs(p99))
 
-heatmap_df_blister <- interaction_results %>%
-  select(label, time_clean, p_adj_fdr, estimate) %>%
+interaction_results <- interaction_results %>%
+  mutate(estimate_capped = pmax(pmin(estimate, lim), -lim))
+
+heatmap_df <- interaction_results %>%
+  select(label, time_clean, tissue, marker, p_adj_fdr, estimate_capped) %>%
   mutate(sig = case_when(
     p_adj_fdr < 0.001 ~ "***",
     p_adj_fdr < 0.01  ~ "**",
     p_adj_fdr < 0.05  ~ "*",
     TRUE ~ ""
   ))
+```
 
-p_blister <- ggplot(heatmap_df_blister, aes(x = time_clean, y = label, fill = estimate)) +
+```{r}
+p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped)) +
   geom_tile(colour="black")+
-  geom_text(aes(label = sig), color = "black", size = 10) +
-  scale_fill_distiller(palette = "RdBu", n = "Difference") +
+  geom_text(aes(label = sig), color = "black", size = 5, vjust = 0.5, hjust = 0.5) +
+  scale_fill_distiller(palette = "RdBu", n = "Difference", limits=c(-lim,lim)) +
   theme_minimal(base_size = 14) +
+  theme(strip.text=element_text(size=14, colour="black", face="bold"))+
   theme(panel.grid = element_blank(),
     axis.text=element_text(size=12,colour="black")
   ) +
-  labs(title = "Difference in marker expression Corona - Guinness",
-       x = "Timepoint", y = "Cluster")
+  labs(title = "Difference in neutrophil phenotype in Corona - Guinness",
+       x = "Timepoint", y = NULL)+
+        facet_wrap(~label, scales = "free_y", ncol=1)
 
-p_blister
+p
+ggsave(plot=p,filename="neuts_marker_change_heatmap.png", dpi=300, height=10,width=7)
+
+```
+```{r}
+markers <- unique(neuts$marker)
+labels  <- unique(neuts$label)
+
+emm_list <- list()
+
+for (lab in labels) {
+
+  message("Running models for label (cluster): ", lab)
+
+  # Determine tissue from label name
+  tissue_for_label <- ifelse(grepl("_blood$", lab), "blood", "blister")
+
+  message("  Using tissue: ", tissue_for_label)
+
+  # Filter data for correct label + tissue
+  model_input_label <- neuts %>%
+    filter(label == lab, tissue == tissue_for_label)
+
+  for (m in markers) {
+
+    message("    → marker: ", m)
+
+    d <- model_input_label %>% filter(marker == m)
+
+    # Skip if there's no usable data
+    if (nrow(d) < 5 || length(unique(d$donor)) < 2) next
+
+    # Mixed model
+    mod <- lmer(mean_expression ~ treatment_clean * time_clean + (1 | donor),
+                data = d)
+
+    emm <- emmeans(mod, ~ treatment_clean * time_clean)
+    emm_df <- as.data.frame(emm)
+    emm_df$marker <- m
+    emm_df$label  <- lab
+    emm_df$tissue <- tissue_for_label
+
+    emm_list[[paste(lab, m, sep = "__")]] <- emm_df
+  }
+}
+
+emm_results <- bind_rows(emm_list)
+# Plot longitudinal EMMs
+ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
+  geom_point(size = 3) +
+  geom_line(size = 1.2) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2) +
+  facet_grid(~marker+label) +
+  theme_minimal(base_size = 14) +
+  labs(x = "Timepoint", y = "Estimated proportion", color = "Treatment") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(values = c("mediumseagreen", "darkorchid"))+
+  theme(axis.text = element_text(colour="black", size = 14),
+  strip.text=element_text(colour="black", size=16, face="bold"))+
+    ylab("Expression")
 ```
