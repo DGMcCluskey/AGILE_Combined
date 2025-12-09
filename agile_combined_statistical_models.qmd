@@ -384,14 +384,16 @@ mean_exp <- summary_df %>% group_by(sample_full, donor, time_clean, treatment_cl
 ## for this to make sense, blister/blood populations should only have the times they were actually collected. additionally, only markers relevant to clusters should be shown, so further subsetting required. finally, scaled expression required too
 ```{r}
 neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
-neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15", "CD11b"))
 ggplot(neuts, aes(x=time_clean, y = marker, fill = mean_expression))+geom_tile()+facet_wrap(~label)
 
 ```
 
 ```{r}
-markers <- unique(neuts$marker)
-labels  <- unique(neuts$label)
+labels <- unique(mean_exp$label)
+labels <- labels[labels %in% c("Treg_blister")]
+markers <- unique(mean_exp$marker)
+markers <- markers[markers %in% c("FOXP3", "CTLA.4", "CD25", "TIGIT", "PD.1")]
 
 interaction_list <- list()
 
@@ -405,7 +407,7 @@ for (lab in labels) {
   message("  Using tissue: ", tissue_for_label)
 
   # Filter data for correct label + tissue
-  model_input_label <- neuts %>%
+  model_input_label <- mean_exp %>%
     filter(label == lab, tissue == tissue_for_label)
 
   for (m in markers) {
@@ -461,6 +463,8 @@ heatmap_df <- interaction_results %>%
 ```
 
 ```{r}
+
+heatmap_df$time_clean <- factor(heatmap_df$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
 p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped)) +
   geom_tile(colour="black")+
   geom_text(aes(label = sig), color = "black", size = 5, vjust = 0.5, hjust = 0.5) +
@@ -475,13 +479,11 @@ p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped))
         facet_wrap(~label, scales = "free_y", ncol=1)
 
 p
-ggsave(plot=p,filename="neuts_marker_change_heatmap.png", dpi=300, height=10,width=7)
+ggsave(plot=p,filename="treg_marker_change_heatmap.png", dpi=300, height=10,width=7)
 
 ```
-```{r}
-markers <- unique(neuts$marker)
-labels  <- unique(neuts$label)
 
+```{r}
 emm_list <- list()
 
 for (lab in labels) {
@@ -494,7 +496,7 @@ for (lab in labels) {
   message("  Using tissue: ", tissue_for_label)
 
   # Filter data for correct label + tissue
-  model_input_label <- neuts %>%
+  model_input_label <- mean_exp %>%
     filter(label == lab, tissue == tissue_for_label)
 
   for (m in markers) {
@@ -525,16 +527,42 @@ emm_results <- bind_rows(emm_list)
 
 ```{r}
 # Plot longitudinal EMMs
+emm_results$time_clean <- factor(emm_results$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
+
 ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
   geom_point(size = 3) +
   geom_line(size = 1.2) +
   geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2) +
-  facet_grid(marker~label, scales="free_y") +
+  facet_wrap(~marker+label,scales="free_y", ncol=3) +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated proportion", color = "Treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_manual(values = c("mediumseagreen", "darkorchid"))+
   theme(axis.text = element_text(colour="black", size = 14),
-  strip.text=element_text(colour="black", size=16, face="bold"))+
+  strip.text=element_text(colour="black", size=12, face="bold"))+
     ylab("Expression")
+```
+
+## PCA on neutrophil populations at each timepoint to see how if any blister ones sit nearby blood
+
+```{r}
+library(factoextra)
+neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15", "CD11b"))
+neuts$sample_id <- paste0(neuts$sample_full, "_", neuts$label)
+pca_input <- neuts[, c(7,8,9)]
+pca_input <- pivot_wider(pca_input, names_from = marker, values_from = mean_expression)
+rownames(pca_input) <- pca_input$sample_id
+pca_input <- pca_input[, -1]
+```
+
+## run pca and view pc contributions
+```{r}
+pca_res <- prcomp(pca_input)
+fviz_eig(pca_res)
+```
+
+## pull out results for plotting
+```{r}
+
 ```
