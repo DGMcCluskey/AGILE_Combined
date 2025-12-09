@@ -544,15 +544,17 @@ ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, gro
 ```
 
 ## PCA on neutrophil populations at each timepoint to see how if any blister ones sit nearby blood
+## of note, i remove (and therefore ignore) expression data of cells which are designated a blood cluster but come from blister and vice-versa
 
 ```{r}
 library(factoextra)
 neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
-neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15", "CD11b"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b"))
 neuts$sample_id <- paste0(neuts$sample_full, "_", neuts$label)
-pca_input <- pivot_wider(neuts, names_from = marker, values_from = mean_expression)
+pca_input <- neuts %>% filter((grepl("_blood", label) & tissue == "blood") | (grepl("_blister", label) & tissue == "blister"))
+pca_input <- pivot_wider(pca_input, names_from = marker, values_from = mean_expression)
 metadata <- pca_input[, c(1:6)]
-pca_input <- pca_input[, c(7:13)]
+pca_input <- pca_input[, c(7:16)]
 rownames(pca_input) <- pca_input$sample_id
 pca_input <- pca_input[, -1]
 ```
@@ -571,13 +573,40 @@ pca_data <- pca_res$x
 pca_data <- cbind(pca_data, metadata)
 pca_data$label <- factor(pca_data$label, levels = c("Neutrophil_young_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
 pca_data$time_clean <- factor(pca_data$time_clean, levels=c("-72h", "0h", "6h", "24h", "48h", "72h"))
+
+loadings <- pca_res$rotation
+
+pc1_df <- data.frame(
+  marker = rownames(loadings),
+  loading = loadings[, "PC1"],
+  abs_loading = abs(loadings[, "PC1"])
+) %>%
+  arrange(desc(abs_loading))
+
+pc2_df <- data.frame(
+  marker = rownames(loadings),
+  loading = loadings[, "PC2"],
+  abs_loading = abs(loadings[, "PC2"])
+) %>%
+  arrange(desc(abs_loading))
 ```
 
 ## plot results
 ```{r}
+library(ggforce)
 p1 <- ggplot(pca_data, aes(x=PC1,y=PC2,colour=label,shape=treatment_clean))+geom_point()+
-  facet_wrap(~time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (58.4%)")+ylab("PC2 (39.3%)")+
-  theme(axis.title=element_text(size=14, colour="black", face="bold"))
+  facet_wrap(~time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (85.8%)")+ylab("PC2 (13.3%)")+
+  theme(axis.title=element_text(size=14, colour="black", face="bold"))+
+  scale_fill_manual(values = c("blood" = "orange", "blister" = "purple"))
 p1
 ggsave(plot=p1, filename="neutrophil_pca.png", dpi=300,height=4, width=12)
+```
+
+## plot loadings
+```{r}
+ggplot(pc1_df, aes(x=abs_loading,y=reorder(marker, abs_loading)))+geom_point(colour="black",size=5)+geom_segment(aes(y=reorder(marker,abs_loading), yend=reorder(marker,abs_loading), x=0, xend=abs_loading), linewidth=1)+theme_minimal()+
+  theme(axis.text=element_text(size=12,colour="black"))+theme(axis.title=element_text(size=16,colour="black", face="bold"))+xlab("PC1 loading")+ylab(NULL)
+
+ggplot(pc2_df, aes(x=abs_loading,y=reorder(marker, abs_loading)))+geom_point(colour="black",size=5)+geom_segment(aes(y=reorder(marker,abs_loading), yend=reorder(marker,abs_loading), x=0, xend=abs_loading), linewidth=1)+theme_minimal()+
+  theme(axis.text=element_text(size=12,colour="black"))+theme(axis.title=element_text(size=16,colour="black", face="bold"))+xlab("PC2 loading")+ylab(NULL)
 ```
