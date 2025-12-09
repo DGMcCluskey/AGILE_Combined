@@ -550,8 +550,9 @@ library(factoextra)
 neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
 neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15", "CD11b"))
 neuts$sample_id <- paste0(neuts$sample_full, "_", neuts$label)
-pca_input <- neuts[, c(7,8,9)]
-pca_input <- pivot_wider(pca_input, names_from = marker, values_from = mean_expression)
+pca_input <- pivot_wider(neuts, names_from = marker, values_from = mean_expression)
+metadata <- pca_input[, c(1:6)]
+pca_input <- pca_input[, c(7:13)]
 rownames(pca_input) <- pca_input$sample_id
 pca_input <- pca_input[, -1]
 ```
@@ -559,10 +560,24 @@ pca_input <- pca_input[, -1]
 ## run pca and view pc contributions
 ```{r}
 pca_res <- prcomp(pca_input)
-fviz_eig(pca_res)
+contrib <- fviz_eig(pca_res)
+contrib
+contrib_numbers <- contrib@data
 ```
 
 ## pull out results for plotting
 ```{r}
+pca_data <- pca_res$x
+pca_data <- cbind(pca_data, metadata)
+pca_data$label <- factor(pca_data$label, levels = c("Neutrophil_young_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
+pca_data$time_clean <- factor(pca_data$time_clean, levels=c("-72h", "0h", "6h", "24h", "48h", "72h"))
+```
 
+## plot results
+```{r}
+p1 <- ggplot(pca_data, aes(x=PC1,y=PC2,colour=label,shape=treatment_clean))+geom_point()+
+  facet_wrap(~time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (58.4%)")+ylab("PC2 (39.3%)")+
+  theme(axis.title=element_text(size=14, colour="black", face="bold"))
+p1
+ggsave(plot=p1, filename="neutrophil_pca.png", dpi=300,height=4, width=12)
 ```
