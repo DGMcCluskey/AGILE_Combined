@@ -340,15 +340,15 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
 ```{r}
 emm_myeloid <- filter(emm_all, label %in% c("DC_blister", "CD1c+_blister"))
 
-emm_neuts <- filter(emm_all, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
+emm_neuts <- filter(emm_all, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister"))
 
-emm_neuts$label <- factor(emm_neuts$label, levels=c("Neutrophil_young_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
+emm_neuts$label <- factor(emm_neuts$label, levels=c("Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
 
 
 longitudinal_neuts <- ggplot(emm_neuts, aes(x = time_clean, y = emmean, color = treatment_clean, group=treatment_clean)) +
-  geom_point(size = 3, position=position_dodge(width=0.5)) +
-  geom_line(size = 1.2, position=position_dodge(width=0.5)) +
-  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0.5)) +
+  geom_point(size = 3, position=position_dodge(width=0)) +
+  geom_line(size = 1.2, position=position_dodge(width=0)) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0)) +
   facet_wrap(~ label, scales = "free_y") +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated % of blood/blister cells") +
@@ -360,9 +360,9 @@ longitudinal_neuts <- ggplot(emm_neuts, aes(x = time_clean, y = emmean, color = 
 longitudinal_neuts
 
 longitudinal_myeloid <- ggplot(emm_myeloid, aes(x = time_clean, y = emmean, color = treatment_clean, group=treatment_clean)) +
-  geom_point(size = 3, position=position_dodge(width=0.5)) +
-  geom_line(size = 1.2, position=position_dodge(width=0.5)) +
-  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0.5)) +
+  geom_point(size = 3, position=position_dodge(width=0)) +
+  geom_line(size = 1.2, position=position_dodge(width=0)) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0)) +
   facet_wrap(~ label, scales = "free_y") +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated % of blood/blister cells") +
@@ -408,17 +408,17 @@ mean_exp <- summary_df %>% group_by(sample_full, donor, time_clean, treatment_cl
 
 ## for this to make sense, blister/blood populations should only have the times they were actually collected. additionally, only markers relevant to clusters should be shown, so further subsetting required. finally, scaled expression required too
 ```{r}
-neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
-neuts <- filter(neuts, marker %in% c("CD16", "CD62L", "CD182", "CD184", "CD15", "CD11b"))
+neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L"))
 ggplot(neuts, aes(x=time_clean, y = marker, fill = mean_expression))+geom_tile()+facet_wrap(~label)
 
 ```
 
 ```{r}
 labels <- unique(mean_exp$label)
-labels <- labels[labels %in% c("Treg_blister")]
+labels <- labels[labels %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister")]
 markers <- unique(mean_exp$marker)
-markers <- markers[markers %in% c("FOXP3", "CTLA.4", "CD25", "TIGIT", "PD.1")]
+markers <- markers[markers %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L")]
 
 interaction_list <- list()
 
@@ -488,6 +488,7 @@ heatmap_df <- interaction_results %>%
 ```
 
 ```{r}
+heatmap_df$label <- factor(heatmap_df$label, levels=c("Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
 
 heatmap_df$time_clean <- factor(heatmap_df$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
 p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped)) +
@@ -504,7 +505,7 @@ p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped))
         facet_wrap(~label, scales = "free_y", ncol=1)
 
 p
-ggsave(plot=p,filename="treg_marker_change_heatmap.png", dpi=300, height=10,width=7)
+ggsave(plot=p,filename="neut_marker_change_heatmap.png", dpi=300, height=12,width=5)
 
 ```
 
@@ -554,18 +555,23 @@ emm_results <- bind_rows(emm_list)
 # Plot longitudinal EMMs
 emm_results$time_clean <- factor(emm_results$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
 
-ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
+emm_markers <- filter(emm_results, marker %in% c("CD66b", "CD62L"))
+
+p <- ggplot(emm_markers, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
   geom_point(size = 3) +
   geom_line(size = 1.2) +
   geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2) +
-  facet_wrap(~marker+label,scales="free_y", ncol=3) +
+  facet_wrap(~label+marker,scales="free_y", ncol=2) +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated proportion", color = "Treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_manual(values = c("mediumseagreen", "darkorchid"))+
-  theme(axis.text = element_text(colour="black", size = 14),
+  theme(axis.text.x = element_text(colour="black", size = 14),
   strip.text=element_text(colour="black", size=12, face="bold"))+
     ylab("Expression")
+
+p
+ggsave(plot=p,filename="neut_marker_longitudinal.png", dpi=300,height=12,width=10)
 ```
 
 ## PCA on neutrophil populations at each timepoint to see how if any blister ones sit nearby blood
@@ -573,13 +579,13 @@ ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, gro
 
 ```{r}
 library(factoextra)
-neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
-neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L"))
+neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b"))
 neuts$sample_id <- paste0(neuts$sample_full, "_", neuts$label)
 pca_input <- neuts %>% filter((grepl("_blood", label) & tissue == "blood") | (grepl("_blister", label) & tissue == "blister"))
 pca_input <- pivot_wider(pca_input, names_from = marker, values_from = mean_expression)
 metadata <- pca_input[, c(1:6)]
-pca_input <- pca_input[, c(7:17)]
+pca_input <- pca_input[, c(7:16)]
 rownames(pca_input) <- pca_input$sample_id
 pca_input <- pca_input[, -1]
 ```
@@ -596,7 +602,7 @@ contrib_numbers <- contrib@data
 ```{r}
 pca_data <- pca_res$x
 pca_data <- cbind(pca_data, metadata)
-pca_data$label <- factor(pca_data$label, levels = c("Neutrophil_young_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
+pca_data$label <- factor(pca_data$label, levels = c("Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
 pca_data$time_clean <- factor(pca_data$time_clean, levels=c("-72h", "0h", "6h", "24h", "48h", "72h"))
 
 loadings <- pca_res$rotation
@@ -620,7 +626,7 @@ pc2_df <- data.frame(
 ```{r}
 library(ggforce)
 p1 <- ggplot(pca_data, aes(x=PC1,y=PC2,colour=label,shape=treatment_clean))+geom_point()+
-  facet_wrap(~treatment_clean+time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (73.6%)")+ylab("PC2 (25.5%)")+
+  facet_wrap(~treatment_clean+time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (85.8%)")+ylab("PC2 (13.3%)")+
   theme(axis.title=element_text(size=14, colour="black", face="bold"))+
   scale_fill_manual(values = c("blood" = "orange", "blister" = "purple"))+
   stat_ellipse(aes(fill=label, group=label,colour=NULL), geom="polygon", alpha=0.3)+scale_fill_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))
@@ -630,8 +636,10 @@ ggsave(plot=p1, filename="neutrophil_pca.png", dpi=300,height=8, width=12)
 
 ## plot loadings
 ```{r}
-ggplot(pc1_df, aes(x=abs_loading,y=reorder(marker, abs_loading)))+geom_point(colour="black",size=5)+geom_segment(aes(y=reorder(marker,abs_loading), yend=reorder(marker,abs_loading), x=0, xend=abs_loading), linewidth=1)+theme_minimal()+
-  theme(axis.text=element_text(size=12,colour="black"))+theme(axis.title=element_text(size=16,colour="black", face="bold"))+xlab("PC1 loading")+ylab(NULL)
+pc1_loadings <- ggplot(pc1_df, aes(x=abs_loading,y=reorder(marker, abs_loading)))+geom_point(colour="black",size=5)+geom_segment(aes(y=reorder(marker,abs_loading), yend=reorder(marker,abs_loading), x=0, xend=abs_loading), linewidth=1)+theme_minimal()+
+  theme(axis.text=element_text(size=12,colour="black"))+theme(axis.title=element_text(size=16,colour="black", face="bold"))+xlab("Contribution to PC1")+ylab(NULL)
+pc1_loadings
+ggsave(plot=pc1_loadings, filename="neut_PC1_loadings.png", dpi=300, height=4,width=5)
 
 ggplot(pc2_df, aes(x=abs_loading,y=reorder(marker, abs_loading)))+geom_point(colour="black",size=5)+geom_segment(aes(y=reorder(marker,abs_loading), yend=reorder(marker,abs_loading), x=0, xend=abs_loading), linewidth=1)+theme_minimal()+
   theme(axis.text=element_text(size=12,colour="black"))+theme(axis.title=element_text(size=16,colour="black", face="bold"))+xlab("PC2 loading")+ylab(NULL)

@@ -299,7 +299,7 @@ cell_annotation_dict = {
     "9": "CD8+T_blister",
     "10": "CD8+T_blister",
     "11": "CD8+T_blister",
-    "12": "Neutrophil_aged_blister",
+    "12": "Neutrophil_mature_blister",
     "13": "CD8+T_blood",
     "14": "Debris/doublets",
     "15": "NK_blister",
@@ -307,21 +307,21 @@ cell_annotation_dict = {
     "17": "DC(CD1c-)_blood",
     "18": "Debris/doublets",
     "19": "NK_blood",
-    "20": "Neutrophil_aged_blister",
+    "20": "Neutrophil_mature_blister",
     "21": "CD4+T_blood",
-    "22": "Neutrophil_young_blood",
+    "22": "Neutrophil_aged_blood",
     "23": "Classical_mono_blood",
     "24": "Invariant_T_blister",
-    "25": "Neutrophil_mature_blister",
+    "25": "Neutrophil_aged_blister",
     "26": "CD4+T_blood",
-    "27": "Neutrophil_aged_blood",
+    "27": "Neutrophil_immature_blood",
     "28": "Neutrophil_mature_blood",
     "29": "Neutrophil_mature_blood",
     "30": "Neutrophil_mature_blood"
 }
 
 adata.obs["label"] = adata.obs["leiden_res_1"].map(cell_annotation_dict)
-cluster_palette= ["indianred", "green", "limegreen", "darkorchid", "purple", "darkred", "red", "chocolate", "grey", "hotpink", "goldenrod", "darkgoldenrod", "deepskyblue", "blue", "darkblue", "darkcyan", "cyan", "greenyellow"]
+cluster_palette= ["indianred", "green", "limegreen", "darkorchid", "purple", "darkred", "red", "chocolate", "grey", "hotpink", "goldenrod", "darkgoldenrod", "darkcyan", "darkblue", "cyan", "deepskyblue", "blue", "greenyellow"]
 ```
 
 ## save/load here
@@ -371,6 +371,7 @@ sc.pl.matrixplot(
 )
 plt.savefig("annotated_heatmap_trimmed.png", dpi=300)
 ```
+
 ## some treatment names are wrong so unifying
 ## make sure 4h times are combined with 6h
 ```{python}
@@ -422,14 +423,35 @@ labels_to_keep = [
     "Neutrophil_mature_blood",
     "Neutrophil_mature_blister",
     "Neutrophil_aged_blood",
-    "Neutrophil_young_blood",
+    "Neutrophil_immature_blood",
     "Neutrophil_aged_blister"
 ]
 
 adata_sub = adata[adata.obs["label"].isin(labels_to_keep)].copy()
-sc.pl.stacked_violin(adata_sub, var_names=["CD16", "CD62L"], groupby="label", layer = "imputed", swap_axes=True)
 ```
 
+```{python}
+sc.pl.stacked_violin(adata_sub, var_names=["CD16", "CD62L", "CD15", "CD182", "CD184"], groupby="label", layer = "imputed", swap_axes=True, standard_scale="var", cmap="Reds", var_group_rotation=45, categories_order=["Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"])
+plt.savefig("neitrophil_phenotype_violins.png", dpi=300, bbox_inches="tight")
+```
+
+```{python}
+# Count and convert to percentages
+cluster_counts = adata.obs["label"].value_counts(normalize=True) * 100
+
+cluster_counts = cluster_counts.reset_index()
+cluster_counts.columns = ["label", "percent"]
+
+plt.figure()
+sns.barplot(data=cluster_counts, x="label", y="percent", palette=cluster_palette)
+plt.xticks(rotation=90)
+plt.ylabel("Percent of all cells")
+plt.title("Cluster proportions")
+plt.tight_layout()
+plt.savefig("proportion_total.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+```
 ```{python}
 df = adata.obs.copy()
 cluster_to_remove = "Debris/doublets"
