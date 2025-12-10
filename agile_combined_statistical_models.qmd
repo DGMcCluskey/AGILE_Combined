@@ -236,9 +236,12 @@ heatmap_plot_combined <- ggplot(heatmap_df_combined, aes(x = time_clean, y = lab
   ) +
   labs(title = "Difference in cluster proportions Corona - Guinness",
        x = "Timepoint", y = NULL)+
-        facet_wrap(~tissue, scales = "free_y", ncol=1)
+        facet_wrap(~tissue, scales = "free_y", ncol=1)+
+  theme(axis.text=element_text(size=14,colour="black"))+
+  theme(strip.text=element_text(size=14,colour="black", face="bold"))
 
 heatmap_plot_combined
+ggsave(plot = heatmap_plot_combined, filename = "proportions_diff_heatmap.png", dpi=300,height=8,width=8)
 ```
 
 ```{r}
@@ -335,21 +338,43 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
 
 ## plot only specific celltypes based on the initial heatmap
 ```{r}
-emm_all <- filter(emm_all, label %in% c("CD4+T_blood", "CD4+T_blister", "Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister", "DC_blister", "CD1c+_blister"))
+emm_myeloid <- filter(emm_all, label %in% c("DC_blister", "CD1c+_blister"))
 
-longitudinal_plots <- ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, shape = group)) +
+emm_neuts <- filter(emm_all, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
+
+emm_neuts$label <- factor(emm_neuts$label, levels=c("Neutrophil_young_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
+
+
+longitudinal_neuts <- ggplot(emm_neuts, aes(x = time_clean, y = emmean, color = treatment_clean, group=treatment_clean)) +
   geom_point(size = 3, position=position_dodge(width=0.5)) +
   geom_line(size = 1.2, position=position_dodge(width=0.5)) +
   geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0.5)) +
-  facet_wrap(~ celltype, scales = "free_y") +
+  facet_wrap(~ label, scales = "free_y") +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated % of blood/blister cells") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(values = c("mediumseagreen", "palevioletred2", "darkgreen", "darkorchid"))+
+  scale_colour_manual(values = c("mediumseagreen","darkorchid"))+
   theme(axis.text = element_text(colour="black", size = 12),
   strip.text=element_text(colour="black", size=12, face="bold"))+
     scale_shape_manual(values=c(16,15,17,18))
-longitudinal_plots
+longitudinal_neuts
+
+longitudinal_myeloid <- ggplot(emm_myeloid, aes(x = time_clean, y = emmean, color = treatment_clean, group=treatment_clean)) +
+  geom_point(size = 3, position=position_dodge(width=0.5)) +
+  geom_line(size = 1.2, position=position_dodge(width=0.5)) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2, position=position_dodge(width=0.5)) +
+  facet_wrap(~ label, scales = "free_y") +
+  theme_minimal(base_size = 14) +
+  labs(x = "Timepoint", y = "Estimated % of blood/blister cells") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(values = c("mediumseagreen","darkorchid"))+
+  theme(axis.text = element_text(colour="black", size = 12),
+  strip.text=element_text(colour="black", size=12, face="bold"))+
+    scale_shape_manual(values=c(16,15,17,18))
+longitudinal_myeloid
+
+ggsave(plot = longitudinal_neuts, filename = "neut_props.png", dpi=300, height = 5, width=12)
+ggsave(plot = longitudinal_myeloid, filename = "myeloid_props.png", dpi=300, height = 3, width=7)
 ```
 
 ## combine heatmap and long plots into one
@@ -549,12 +574,12 @@ ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, gro
 ```{r}
 library(factoextra)
 neuts <- filter(mean_exp, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_young_blood", "Neutrophil_aged_blister"))
-neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b"))
+neuts <- filter(neuts, marker %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L"))
 neuts$sample_id <- paste0(neuts$sample_full, "_", neuts$label)
 pca_input <- neuts %>% filter((grepl("_blood", label) & tissue == "blood") | (grepl("_blister", label) & tissue == "blister"))
 pca_input <- pivot_wider(pca_input, names_from = marker, values_from = mean_expression)
 metadata <- pca_input[, c(1:6)]
-pca_input <- pca_input[, c(7:16)]
+pca_input <- pca_input[, c(7:17)]
 rownames(pca_input) <- pca_input$sample_id
 pca_input <- pca_input[, -1]
 ```
@@ -595,11 +620,12 @@ pc2_df <- data.frame(
 ```{r}
 library(ggforce)
 p1 <- ggplot(pca_data, aes(x=PC1,y=PC2,colour=label,shape=treatment_clean))+geom_point()+
-  facet_wrap(~time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (85.8%)")+ylab("PC2 (13.3%)")+
+  facet_wrap(~treatment_clean+time_clean, ncol=6)+theme_minimal()+scale_colour_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))+theme(strip.text=element_text(size=14, colour="black", face="bold"))+theme(legend.position="bottom")+guides(colour=guide_legend(ncol=2))+xlab("PC1 (73.6%)")+ylab("PC2 (25.5%)")+
   theme(axis.title=element_text(size=14, colour="black", face="bold"))+
-  scale_fill_manual(values = c("blood" = "orange", "blister" = "purple"))
+  scale_fill_manual(values = c("blood" = "orange", "blister" = "purple"))+
+  stat_ellipse(aes(fill=label, group=label,colour=NULL), geom="polygon", alpha=0.3)+scale_fill_manual(values =c("indianred2", "red", "darkred", "steelblue", "blue"))
 p1
-ggsave(plot=p1, filename="neutrophil_pca.png", dpi=300,height=4, width=12)
+ggsave(plot=p1, filename="neutrophil_pca.png", dpi=300,height=8, width=12)
 ```
 
 ## plot loadings
