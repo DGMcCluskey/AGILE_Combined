@@ -354,8 +354,9 @@ plt.savefig("annotated_heatmap.png", dpi=300)
 ```
 
 ## do a second heatmap without debris/doublets and the invariant t cells (as these dominate the sacale of some markers)
+## also remove neuts as their cd16 expression is so high i can't find monocyte subsets
 ```{python}
-remove = ["Debris/doublets", "Invariant_T_blister"]
+remove = ["Debris/doublets", "Invariant_T_blister", "Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"]
 adata_trim = adata[~adata.obs["label"].isin(remove)].copy()
 sc.tl.dendrogram(adata_trim, groupby="label")
 plt.figure()

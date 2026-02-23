@@ -29,6 +29,30 @@ blister_df <- blister_df %>%
   left_join(donor_info %>% select(donor, Age,), by = "donor")
 ```
 
+### adding optional code to combine neutrophil populations to understand overall changes
+
+```{r}
+blood_df <- blood_df %>% mutate(label = if_else(label %in% c("Neutrophil_mature_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blood"), "Neutrophil_blood", label))
+blood_df2 <- blood_df %>%
+  group_by(donor, treatment_clean, time_clean, label, Age) %>%
+  summarise(
+    count = sum(count),
+    prop = sum(prop),
+    .groups = "drop"
+  )
+blood_df <- blood_df2
+
+blister_df <- blister_df %>% mutate(label = if_else(label %in% c("Neutrophil_mature_blister", "Neutrophil_aged_blister"), "Neutrophil_blister", label))
+blister_df2 <- blister_df %>%
+  group_by(donor, treatment_clean, time_clean, label, Age) %>%
+  summarise(
+    count = sum(count),
+    prop = sum(prop),
+    .groups = "drop"
+  )
+blister_df <- blister_df2
+```
+
 ```{r}
 ## Factors
 blood_df$time_clean <- factor(blood_df$time_clean, levels = c("-72h","0h","6h","24h","48h","72h"))
@@ -338,7 +362,7 @@ ggplot(emm_all, aes(x = time_clean, y = emmean, color = group, group = group, sh
 
 ## plot only specific celltypes based on the initial heatmap
 ```{r}
-emm_myeloid <- filter(emm_all, label %in% c("DC_blister", "CD1c+_blister"))
+emm_myeloid <- filter(emm_all, label %in% c("Classical_mono_blood", "DC_blister", "Treg_blister"))
 
 emm_neuts <- filter(emm_all, label %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister"))
 
@@ -374,7 +398,7 @@ longitudinal_myeloid <- ggplot(emm_myeloid, aes(x = time_clean, y = emmean, colo
 longitudinal_myeloid
 
 ggsave(plot = longitudinal_neuts, filename = "neut_props.png", dpi=300, height = 5, width=12)
-ggsave(plot = longitudinal_myeloid, filename = "myeloid_props.png", dpi=300, height = 3, width=7)
+ggsave(plot = longitudinal_myeloid, filename = "myeloid_props.png", dpi=300, height = 3, width=10)
 ```
 
 ## combine heatmap and long plots into one
@@ -416,9 +440,12 @@ ggplot(neuts, aes(x=time_clean, y = marker, fill = mean_expression))+geom_tile()
 
 ```{r}
 labels <- unique(mean_exp$label)
-labels <- labels[labels %in% c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister")]
+neut_names <- c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister")
+neut_markers <- c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L")
+
+labels <- labels[labels %in% c("Classical_mono_blood")]
 markers <- unique(mean_exp$marker)
-markers <- markers[markers %in% c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L")]
+markers <- markers[markers %in% c("CD14", "CD16", "CD80", "CD86", "CTLA4", "HLA-DR", "CD1c", "KI.67")]
 
 interaction_list <- list()
 
@@ -488,7 +515,7 @@ heatmap_df <- interaction_results %>%
 ```
 
 ```{r}
-heatmap_df$label <- factor(heatmap_df$label, levels=c("Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
+#heatmap_df$label <- factor(heatmap_df$label, levels=c("Neutrophil_immature_blood", "Neutrophil_mature_blood", "Neutrophil_aged_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blister"))
 
 heatmap_df$time_clean <- factor(heatmap_df$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
 p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped)) +
@@ -500,12 +527,12 @@ p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped))
   theme(panel.grid = element_blank(),
     axis.text=element_text(size=12,colour="black")
   ) +
-  labs(title = "Difference in neutrophil phenotype in Corona - Guinness",
+  labs(title = "Difference in classical monocyte \n phenotype in Corona - Guinness",
        x = "Timepoint", y = NULL)+
         facet_wrap(~label, scales = "free_y", ncol=1)
 
 p
-ggsave(plot=p,filename="neut_marker_change_heatmap.png", dpi=300, height=12,width=5)
+ggsave(plot=p,filename="monocyte_marker_change_heatmap.png", dpi=300, height=5,width=5)
 
 ```
 
@@ -555,13 +582,13 @@ emm_results <- bind_rows(emm_list)
 # Plot longitudinal EMMs
 emm_results$time_clean <- factor(emm_results$time_clean, levels = c("-72h", "0h", "6h", "24h", "48h", "72h"))
 
-emm_markers <- filter(emm_results, marker %in% c("CD66b", "CD62L", "CD11b"))
+#emm_markers <- filter(emm_results, marker %in% c("FOXP3", "CTLA4", "TIGIT", "PD.1", "HLA.DR", "CD80", "CD86"))
 
-p <- ggplot(emm_markers, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
+p <- ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean, group = treatment_clean)) +
   geom_point(size = 3) +
   geom_line(size = 1.2) +
   geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.2) +
-  facet_wrap(~label+marker,scales="free_y", ncol=3) +
+  facet_wrap(~label+marker,scales="free_y", ncol=2) +
   theme_minimal(base_size = 14) +
   labs(x = "Timepoint", y = "Estimated proportion", color = "Treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
@@ -571,7 +598,7 @@ p <- ggplot(emm_markers, aes(x = time_clean, y = emmean, color = treatment_clean
     ylab("Expression")
 
 p
-ggsave(plot=p,filename="neut_marker_longitudinal.png", dpi=300,height=12,width=10)
+ggsave(plot=p,filename="monocyte_marker_longitudinal.png", dpi=300,height=10,width=12)
 ```
 
 ## PCA on neutrophil populations at each timepoint to see how if any blister ones sit nearby blood
