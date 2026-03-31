@@ -362,7 +362,9 @@ sc.tl.dendrogram(adata_trim, groupby="label")
 plt.figure()
 sc.pl.matrixplot(
     adata_trim,
-    var_names=["CD3", "CD4", "CD8", "FOXP3", "CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L"],
+    var_names=["CD3", "CD4", "CD8", "FOXP3", "CD25", "CD127", "TIGIT", 
+    #"CD56", "CD14", "CD16", "CD1c", "HLA-DR", "CD66b", "CD15", "CD62L"
+    ],
     groupby="label",
     layer="imputed",
     dendrogram=True,
@@ -371,6 +373,12 @@ sc.pl.matrixplot(
     figsize=(12,7)
 )
 plt.savefig("annotated_heatmap_trimmed.png", dpi=300)
+```
+
+```{python}
+plt.figure()
+sc.pl.umap(adata_trim, color = ["FOXP3", "CTLA-4", "TIGIT", "PD-1", "CCR6", "CD103", "CD127", "CD25", "CD69", "CD28", "KI-67"], cmap = "magma_r", layer = "imputed", size = 10, legend_fontsize=12)
+plt.savefig("umap_trimmed_treg_markers.png", dpi=300)
 ```
 
 ## some treatment names are wrong so unifying
@@ -534,4 +542,7 @@ df = pd.concat([df, expr], axis=1)
 df.to_csv("agile_combined_expression_df.csv")
 
 sample_check = pd.DataFrame(df["sample_full"].unique())
+```
+```{python}
+sc.pl.umap(adata, color="FOXP3")
 ```

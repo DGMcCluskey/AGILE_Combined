@@ -443,9 +443,9 @@ labels <- unique(mean_exp$label)
 neut_names <- c("Neutrophil_mature_blood", "Neutrophil_mature_blister", "Neutrophil_aged_blood", "Neutrophil_immature_blood", "Neutrophil_aged_blister")
 neut_markers <- c("CD16", "CD14", "CCR6", "CD47","CD66b", "HLA-DR", "CD182", "CD184", "CD15", "CD11b", "CD62L")
 
-labels <- labels[labels %in% c("Classical_mono_blood")]
+labels <- labels[labels %in% c("Treg_blister")]
 markers <- unique(mean_exp$marker)
-markers <- markers[markers %in% c("CD14", "CD16", "CD80", "CD86", "CTLA4", "HLA-DR", "CD1c", "KI.67")]
+markers <- markers[markers %in% c("FOXP3", "CTLA.4", "TIGIT", "PD.1", "CCR6", "CD103", "CD127", "CD25", "CD69", "CD28", "KI.67")]
 
 interaction_list <- list()
 
@@ -527,12 +527,12 @@ p <- ggplot(heatmap_df, aes(x = time_clean, y = marker, fill = estimate_capped))
   theme(panel.grid = element_blank(),
     axis.text=element_text(size=12,colour="black")
   ) +
-  labs(title = "Difference in classical monocyte \n phenotype in Corona - Guinness",
+  labs(title = "Difference in blister Treg \n phenotype in Corona - Guinness",
        x = "Timepoint", y = NULL)+
         facet_wrap(~label, scales = "free_y", ncol=1)
 
 p
-ggsave(plot=p,filename="monocyte_marker_change_heatmap.png", dpi=300, height=5,width=5)
+ggsave(plot=p,filename="treg_blister_marker_change_heatmap.png", dpi=300, height=5,width=5)
 
 ```
 
@@ -598,7 +598,7 @@ p <- ggplot(emm_results, aes(x = time_clean, y = emmean, color = treatment_clean
     ylab("Expression")
 
 p
-ggsave(plot=p,filename="monocyte_marker_longitudinal.png", dpi=300,height=10,width=12)
+ggsave(plot=p,filename="treg_blister_longitudinal.png", dpi=300,height=10,width=12)
 ```
 
 ## PCA on neutrophil populations at each timepoint to see how if any blister ones sit nearby blood
